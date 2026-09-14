@@ -15,16 +15,19 @@ export type PartConfig = {
 };
 
 export const PARTS_CONFIG: PartConfig[] = [
+  // Right arm behind everything (torso included) — the "far" arm for the
+  // diagonal/side directions, tucked mostly out of sight behind the body
+  // to sell depth. Putting it in front of the shirt too (tried once) made
+  // every diagonal direction show both arms fully, reading as a second
+  // pair of limbs instead of "one arm swung forward, one behind" — put
+  // back after that was reported. Left arm is the one that stays in front.
+  { category: 'body', className: 'AvatarArms', id: 'right', order: 0, required: true },
   { category: 'body', className: 'AvatarLegs',             order: 1, required: true },
   { category: 'body', className: 'AvatarBody',             order: 2, required: true },
   // Pants sit on top of the torso — drawn over the shirt hem, not tucked
   // under it.
   { category: 'pant', className: 'Pant', order: 2.5 },
   { category: 'tshirt', className: 'Tshirt', order: 3, hasSleeves: true },
-  // Both arms render in front of the shirt — kept at slightly different
-  // orders (not tied) so the right arm still draws first when the sort is
-  // stable, matching the left arm's usual "front" role in the walk cycle.
-  { category: 'body', className: 'AvatarArms', id: 'right', order: 3.5, required: true },
   { category: 'body', className: 'AvatarArms', id: 'left',  order: 4, required: true },
   { category: 'body', className: 'AvatarHead',             order: 5, required: true },
   { category: 'hair', className: 'Hair', order: 6 },
