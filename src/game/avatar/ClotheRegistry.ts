@@ -1,11 +1,15 @@
-import { Clothe } from './structure/parts/clothes/Clothe';
+import { IClothe } from './structure/parts/clothes/IClothe';
 import { Hair } from './structure/parts/clothes/parts/Hair';
 import { Hat } from './structure/parts/clothes/parts/Hat';
 import { Tshirt } from './structure/parts/clothes/parts/Tshirt';
 import { Face } from './structure/parts/clothes/parts/Face';
 import { Pant } from './structure/parts/clothes/parts/Pant';
 
-export type ClotheConstructor = new (id: string, direction?: number) => Clothe;
+// IClothe, not the concrete Clothe class: Pant extends AnimatedClothe
+// (AnimatedSprite-based) instead of Clothe (Sprite-based) — both implement
+// IClothe, that's the only thing every category's constructor is required
+// to produce.
+export type ClotheConstructor = new (id: string, direction?: number) => IClothe;
 
 class ClotheRegistry {
   private registry: Map<string, ClotheConstructor> = new Map();
@@ -23,7 +27,7 @@ class ClotheRegistry {
     this.registry.set(category, constructor);
   }
 
-  create(category: string, id?: string, direction?: number): Clothe | null {
+  create(category: string, id?: string, direction?: number): IClothe | null {
     const constructor = this.registry.get(category);
     if (!constructor) {
       console.warn(`Unknown clothe category: ${category}`);
