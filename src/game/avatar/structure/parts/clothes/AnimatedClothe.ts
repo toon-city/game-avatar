@@ -13,10 +13,22 @@ import {AssetBaseUrl} from '../../../../../core/AssetBaseUrl';
  * frame-locked to any body part's animation. A sleeve has to match the arm
  * it partially reveals frame-for-frame, or the body's own arm shows through
  * misaligned. An item using this class sits at a z-order that fully covers
- * what's underneath (e.g. `Pant`, order 1.5 in partsConfig.ts — between the
- * body's legs at order 1 and the torso at order 2), so nothing of the body
- * is ever visible through it; its own frame count and timing are entirely
- * independent of the body's.
+ * what's underneath (e.g. `Pant`, order 2.5 in partsConfig.ts), so nothing
+ * of the body is ever visible through it; its own frame *content* is
+ * entirely independent of the body's, no per-frame matching needed.
+ *
+ * Its *timing* is a different story: with an unrelated frame count but the
+ * same flat `baseAnimationSpeed`, the garment's swing cycle and the leg's
+ * own gait cycle have different periods and drift in and out of phase
+ * continuously — visible even with the leg itself fully hidden, since the
+ * mismatch reads as "two things animating at odds" on its own. The optional
+ * `syncAnimations` param (same `Texture[][]` shape as
+ * `BaseTextureLoader.HUMAN_LEGS_ANIMATIONS`, indexed by `direction - 1`)
+ * fixes that by scaling `animationSpeed` per direction so this item's cycle
+ * takes exactly as many ticks as the reference animation's — same start
+ * (both fire from `Avatar.walk()`), same period, so they stay phase-locked
+ * indefinitely instead of only briefly lining up. Still no frame-for-frame
+ * matching, just matched cycle length.
  *
  * Frame contract: `{id}_{direction}_{n}.png`, `n` starting at 0, same 80x120
  * trim canvas as `Clothe` (see its class doc — no app-side offset here
@@ -31,7 +43,14 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
   private readonly _identifier: string;
   private readonly _type: string;
 
-  constructor(identifier: string, type: string, direction: number, private readonly baseAnimationSpeed = 0.22) {
+  constructor(
+    identifier: string,
+    type: string,
+    direction: number,
+    private readonly baseAnimationSpeed = 0.22,
+    /** See class doc — optional per-direction reference animation to phase-lock this item's cycle length to. */
+    private readonly syncAnimations?: Texture[][],
+  ) {
     super([Texture.EMPTY]);
     this._identifier = identifier;
     this._type = type;
@@ -85,6 +104,19 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
     if (this.textures.length > 0) this.texture = this.textures[0] as Texture;
   }
 
+  /**
+   * `baseAnimationSpeed` scaled so this direction's cycle (`ownFrameCount`
+   * frames) takes the same number of ticks as `syncAnimations`' cycle for
+   * the same direction, if one was given — see class doc. Falls back to
+   * the flat `baseAnimationSpeed` when there's no reference to sync to, or
+   * the reference has no frames for this direction (nothing to divide by).
+   */
+  private computeAnimationSpeed(ownFrameCount: number): number {
+    const refCount = this.syncAnimations?.[this._direction - 1]?.length ?? 0;
+    if (refCount === 0) return this.baseAnimationSpeed;
+    return this.baseAnimationSpeed * (ownFrameCount / refCount);
+  }
+
   /** Collect `{identifier}_{direction}_{n}.png` for n = 0, 1, 2, ... until one is missing. */
   private framesForCurrentDirection(): Texture[] {
     if (!Assets.cache.has(this.fileURI)) return [];
@@ -112,7 +144,7 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
 
     this.textures = frames;
     this.texture = frames[0] as Texture;
-    this.animationSpeed = this.baseAnimationSpeed;
+    this.animationSpeed = this.computeAnimationSpeed(frames.length);
 
     if (this._walking && frames.length > 1) this.play();
   }
