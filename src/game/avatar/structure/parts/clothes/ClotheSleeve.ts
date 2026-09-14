@@ -8,8 +8,10 @@ import {AssetBaseUrl} from '../../../../../core/AssetBaseUrl';
  * A clothing item's own layer (see Clothe.ts) is a single static sprite
  * roughly at torso z-order. Sleeves are different: they must sit at the
  * EXACT same z-order as the matching body arm — whatever that is in
- * `partsConfig.ts` (both arms currently render in front of the shirt) —
- * and they must animate in lockstep with that arm's own walk cycle. So this
+ * `partsConfig.ts` (right arm behind the torso, left in front, as of this
+ * writing — both-in-front was tried once and reverted, see
+ * `partsConfig.ts`'s comment) — and they must animate in lockstep with
+ * that arm's own walk cycle. So this
  * is its own part, inserted by Avatar.changeClothing() right next to the
  * AvatarArms instance it shadows — not through the usual one-part-per-category
  * clothing slot.
