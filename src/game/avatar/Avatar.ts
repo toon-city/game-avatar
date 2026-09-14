@@ -290,9 +290,9 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
   /**
    * Insert left/right sleeve overlays for a just-equipped item, each right
-   * next to the AvatarArms instance it must share a z-order with (right
-   * sleeve behind the torso like the back arm, left sleeve in front of it
-   * like the front arm) — see ClotheSleeve's class doc.
+   * next to the AvatarArms instance it must share a z-order with (whatever
+   * `partsConfig.ts` currently gives that arm) — see ClotheSleeve's class
+   * doc.
    */
   private attachSleeves(category: string, clothingId: string): void {
     (['right', 'left'] as const).forEach(side => {
