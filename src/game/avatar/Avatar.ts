@@ -167,6 +167,60 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   private static readonly VALID_DIRECTIONS = new Set([1, 2, 4, 5, 6, 8, 9, 10]);
 
   /**
+   * Directions where the character is three-quarter-turned enough that BOTH
+   * arms have full, prominent artwork on each side — putting both in front
+   * there reads as a second pair of limbs (see bffe8b7's commit message).
+   * For every other direction (straight facing, incl. pure left/right) the
+   * "behind" arm's own art is either a near-empty stub (4/8: nothing to see
+   * regardless of order) or a thin symmetric sliver (1/2: anatomically
+   * correct to show on both sides, not a duplicate limb) — so keeping the
+   * right arm behind there only costs visibility for no depth-cue benefit.
+   */
+  private static readonly DIAGONAL_DIRECTIONS = new Set([5, 6, 9, 10]);
+
+  /**
+   * Move the right arm ('behind everything', order 0 in partsConfig.ts) to
+   * sit right in front of the shirt alongside the left arm — same role,
+   * same depth — whenever the current facing isn't one of the diagonals
+   * that motivated keeping it behind in the first place. Straight-facing
+   * poses (front/back/pure left/right) never show two full limbs even with
+   * both arms in front, so there's no double-limb risk to guard against
+   * there, and pure left/right needed this: the front arm's own sliver
+   * there is only 2-3px wide and was reading as "no arm at all" — right's
+   * matching sliver piles onto the same spot, which is the only lever
+   * available without new art.
+   *
+   * Purely reorders `this.parts` (returns whether it actually changed
+   * anything) — callers decide whether/when to re-run `renderParts()`, so
+   * this can be called both on every direction change and defensively
+   * before every `renderParts()` (clothing changes reinsert parts by their
+   * static `partsConfig.ts` order, which would otherwise silently undo a
+   * "front" placement the moment a new tshirt gets spliced in between the
+   * two arms).
+   */
+  private syncArmDepthForDirection(direction: number): boolean {
+    const rightArm = this.parts.find((p): p is AvatarArms => p instanceof AvatarArms && p.side === 'right');
+    if (!rightArm) return false;
+
+    const wantsFront = !Avatar.DIAGONAL_DIRECTIONS.has(direction);
+    const withoutRight = this.parts.filter(p => p !== rightArm);
+    const leftArmIndex = withoutRight.findIndex(p => p instanceof AvatarArms && p.side === 'left');
+    const targetIndex = wantsFront
+      ? (leftArmIndex === -1 ? withoutRight.length : leftArmIndex)
+      : 0;
+
+    const reordered = [...withoutRight];
+    reordered.splice(targetIndex, 0, rightArm);
+
+    const unchanged = reordered.length === this.parts.length
+      && reordered.every((part, i) => part === this.parts[i]);
+    if (unchanged) return false;
+
+    this.parts = reordered;
+    return true;
+  }
+
+  /**
    * Face the avatar towards `direction` (a LEFT/RIGHT/UP/DOWN bitmask).
    *
    * `0` means "no movement key held" and keeps the current facing: an idle
@@ -208,6 +262,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
   /** Push the current direction down to every part. */
   private syncPartsDirection() {
+    if (this.syncArmDepthForDirection(this._direction)) this.renderParts();
     this.parts.forEach((part) => {
       part.direction = this._direction;
     });
@@ -279,11 +334,13 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
         this.parts.splice(insertIndex, 0, newClothe);
         if (config?.hasSleeves) this.attachSleeves(category, id);
+        this.syncArmDepthForDirection(this._direction);
         this.renderParts();
         return true;
       }
     }
 
+    this.syncArmDepthForDirection(this._direction);
     this.renderParts();
     return false;
   }
