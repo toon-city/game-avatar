@@ -3,6 +3,8 @@ import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 const PADDING   = 10;
 const RADIUS    = 8;
 const MAX_W     = 160; // max bubble width before wrapping
+const TEXT_COLOR_NORMAL  = 0x222222;
+const TEXT_COLOR_PRIVATE = 0x999999; // lighter gray — private messages (mp)
 // Tail geometry: base sits at the bottom-left of the bubble body,
 // tip points down-left to (0, 0) – anchored near the avatar's head.
 const TAIL_TIP_X  =  0;  // tail tip  (anchor = head position)
@@ -59,12 +61,19 @@ export class AvatarBubble extends Container {
    * @param text     Message to show.
    * @param duration How long to show the bubble in ms. Pass `0` to keep it
    *                 visible indefinitely (call `hide()` manually).
+   * @param isPrivate Renders the text italic, in a lighter gray — visual
+   *                 distinction for a mp (only the sender/recipient's own
+   *                 clients ever call show() for one, since the server only
+   *                 delivers it to those two, but it still needs to read as
+   *                 "not public chat" at a glance).
    */
-  show(text: string, duration = 3000): void {
+  show(text: string, duration = 3000, isPrivate = false): void {
     // Cancel any pending auto‑hide
     this.clearTimer();
 
     this.labelText.text = text;
+    this.labelText.style.fontStyle = isPrivate ? 'italic' : 'normal';
+    this.labelText.style.fill = isPrivate ? TEXT_COLOR_PRIVATE : TEXT_COLOR_NORMAL;
     this.redraw();
     this.visible = true;
 

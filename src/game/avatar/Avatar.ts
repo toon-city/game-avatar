@@ -325,8 +325,9 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * Display a speech bubble above the avatar.
    * @param text     Message to show.
    * @param duration Duration in ms (default 3 s). Pass 0 to keep indefinitely.
+   * @param isPrivate Italic, lighter gray text — see AvatarBubble.show().
    */
-  public say(text: string, duration = 3000): void {
+  public say(text: string, duration = 3000, isPrivate = false): void {
     if (!this.bubble) {
       this.bubble = new AvatarBubble();
       // Tail tip anchored near the upper-right of the avatar's head
@@ -334,7 +335,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
       this.bubble.y = 20;
       this.addChild(this.bubble);
     }
-    this.bubble.show(text, duration);
+    this.bubble.show(text, duration, isPrivate);
   }
 
   /** Hide the speech bubble immediately. */
