@@ -117,7 +117,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
     this.renderParts();
 
-    this.setSkinColor(0xf7ceaf);
+    this.setSkinColor(0xffffff);
   }
 
   private renderParts() {
