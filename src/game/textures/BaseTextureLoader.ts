@@ -1,4 +1,4 @@
-import {Assets, Texture} from 'pixi.js';
+import {Assets, Texture, TextureSource} from 'pixi.js';
 
 export class BaseTextureLoader {
   private static instance: BaseTextureLoader;
@@ -29,8 +29,36 @@ export class BaseTextureLoader {
   }
 
   public async load() {
+    BaseTextureLoader.enableMipmaps();
     await this.loadTextures();
     this.loadAnimations();
+  }
+
+  /**
+   * Every sheet in the game is authored well above its on-screen size (the
+   * body/clothes atlases at `"scale": "3"`, furniture at `"2"`), so everything
+   * is drawn minified. PixiJS ships with `autoGenerateMipmaps` off, which
+   * leaves a single full-resolution mip level and a plain bilinear filter:
+   * four source texels per output pixel, no matter how many the pixel actually
+   * covers — that's the residual jaggies/shimmer on the avatar and the
+   * previews. Turning it on makes `GlTextureSystem` derive the level count
+   * itself (`floor(log2(biggest)) + 1`) and the style map resolves to
+   * LINEAR_MIPMAP_LINEAR, i.e. real trilinear minification.
+   *
+   * Safe for our atlases specifically because every sheet is packed with 6px
+   * of padding around each frame, and nothing in game is minified past ~1.5x
+   * (a 3x sheet on a canvas already supersampled to resolution >= 2), so only
+   * mip levels 0-1 are ever sampled — far from the level where a neighbouring
+   * frame could bleed across that padding.
+   *
+   * Mutating the shared default rather than each source: it must be set
+   * before a TextureSource is constructed, and this runs before any sheet
+   * loads. `VideoSource.defaultOptions` snapshots `TextureSource.defaultOptions`
+   * at import time, so the loading video is untouched and doesn't end up
+   * regenerating a mip chain on every frame it plays.
+   */
+  private static enableMipmaps(): void {
+    TextureSource.defaultOptions.autoGenerateMipmaps = true;
   }
 
   private async loadTextures() {
