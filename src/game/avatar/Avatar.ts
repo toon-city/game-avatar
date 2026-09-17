@@ -46,12 +46,19 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
   isWalking: boolean = false;
 
+  // Preview-only device (identity-card badge, clothing-studio preview) — an
+  // in-room avatar standing/walking around a house shouldn't show it. Still
+  // constructed either way since `points`/`updateZIndex` read `socle.y` for
+  // hit-rect/depth math regardless of whether it's actually drawn.
+  private showSocle: boolean = true;
+
   constructor(app: Application, params: IAvatarParams) {
     super();
     this.app = app;
     this.height = 120;
     this.width = 80;
     this._direction = params.direction ?? 1;
+    this.showSocle = params.showSocle ?? true;
     this.init();
     this.changeDirection(this._direction);
   }
@@ -103,7 +110,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     if (this.socle == null) {
       this.socle = new Sprite(Texture.from('socle.png'));
       this.socle.position.set(4, 100);
-      this.addChild(this.socle);
+      if (this.showSocle) this.addChild(this.socle);
     }
 
     // Initialize parts based on configuration
