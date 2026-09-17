@@ -18,7 +18,9 @@ import { PARTS_CONFIG, getPartsInOrder, PartConfig } from './partsConfig';
 import ClotheRegistry from './ClotheRegistry';
 import * as ZOrder from '../../modules/common/ZOrder';
 import { AvatarBubble } from './AvatarBubble';
-import { AvatarEmote } from './AvatarEmote';
+import { SmileOverlay } from './SmileOverlay';
+import { LoveOverlay } from './LoveOverlay';
+import { SnoreOverlay } from './SnoreOverlay';
 
 // 10	2	6
 // 8	1	4
@@ -32,7 +34,9 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   // SPRITES
   socle: Sprite | null = null;
   private bubble: AvatarBubble | null = null;
-  private emoteOverlay: AvatarEmote | null = null;
+  private smileOverlay: SmileOverlay | null = null;
+  private loveOverlay: LoveOverlay | null = null;
+  private snoreOverlay: SnoreOverlay | null = null;
   private usernameNameplate: Container | null = null;
   legs: AvatarLegs | null = null;
   arms: AvatarArms[] = [];
@@ -133,6 +137,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    */
   public walk() {
     this.isWalking = true;
+    this.stopSnore(); // moving cancels an in-progress snore, same as talking does
     this.parts.forEach((part) => {
       part.walk();
     });
@@ -387,6 +392,9 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * @param isPrivate Italic, lighter gray text — see AvatarBubble.show().
    */
   public say(text: string, duration = 3000, isPrivate = false): void {
+    // Talking cancels an in-progress snore, same as the original (AS2:
+    // Bulle.setText / User.say() both call initZZ()).
+    this.stopSnore();
     if (!this.bubble) {
       this.bubble = new AvatarBubble();
       // Tail tip anchored near the upper-right of the avatar's head
@@ -402,23 +410,51 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     this.bubble?.hide();
   }
 
-  /**
-   * Display a floating icon above the avatar — smile (12-frame emoji set,
-   * `assets/images/emojis/{1-12}.png`), coeurs, or zzz. See AvatarEmote.
-   * @param textureUrl Image to show.
-   * @param duration   ms before auto-hide (default 4s, matches the
-   *                   original Smile.as's setInterval(kill, 4000)).
-   * @param pulse      Continuous scale pulse — used for LOVE only.
-   */
-  public emote(textureUrl: string, duration = 4000, pulse = false): void {
-    if (!this.emoteOverlay) {
-      this.emoteOverlay = new AvatarEmote();
-      // Same anchor spot as the speech bubble's tail tip, above the head.
-      this.emoteOverlay.x = this.width * 0.55;
-      this.emoteOverlay.y = 20;
-      this.addChild(this.emoteOverlay);
+  /** Play one of the 12 emoji bubbles above the avatar's head (1-12). */
+  public playSmile(slot: number): void {
+    this.stopSnore();
+    if (!this.smileOverlay) {
+      this.smileOverlay = new SmileOverlay();
+      this.smileOverlay.x = this.width * 0.55;
+      this.smileOverlay.y = 20;
+      this.addChild(this.smileOverlay);
     }
-    this.emoteOverlay.show(textureUrl, duration, pulse);
+    this.smileOverlay.show(slot);
+  }
+
+  /** Play the "cœurs" animation above the avatar's head. */
+  public playLove(): void {
+    this.stopSnore();
+    if (!this.loveOverlay) {
+      this.loveOverlay = new LoveOverlay();
+      this.loveOverlay.x = this.width * 0.55;
+      this.loveOverlay.y = 20;
+      this.addChild(this.loveOverlay);
+    }
+    this.loveOverlay.show();
+  }
+
+  /**
+   * Start the continuous "zzz" snore loop above the avatar's head. Unlike
+   * playSmile/playLove this has no fixed duration — the caller must call
+   * stopSnore() when the player talks or moves (say() and walk() already
+   * do this for this avatar's own overlay; a caller driving a REMOTE
+   * avatar from network events needs to call stopSnore() itself on that
+   * avatar's own move/say broadcasts).
+   */
+  public startSnore(): void {
+    if (!this.snoreOverlay) {
+      this.snoreOverlay = new SnoreOverlay();
+      this.snoreOverlay.x = this.width * 0.55;
+      this.snoreOverlay.y = 20;
+      this.addChild(this.snoreOverlay);
+    }
+    this.snoreOverlay.start();
+  }
+
+  /** Stop the snore loop immediately, if running. */
+  public stopSnore(): void {
+    this.snoreOverlay?.stop();
   }
 
   /**
