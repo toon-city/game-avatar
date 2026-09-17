@@ -420,7 +420,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
       // this doesn't have), and much closer to head-top than the speech
       // bubble's y:20 — that gap reads right for a text bubble that needs
       // to clear its own tail, but left this floating well above the head.
-      this.smileOverlay.x = this.width * 0.36;
+      this.smileOverlay.x = this.width * 0.30;
       this.smileOverlay.y = 28;
       this.addChild(this.smileOverlay);
     }
@@ -432,7 +432,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     this.stopSnore();
     if (!this.loveOverlay) {
       this.loveOverlay = new LoveOverlay();
-      this.loveOverlay.x = this.width * 0.5;
+      this.loveOverlay.x = this.width * 0.44;
       this.loveOverlay.y = 40;
       this.addChild(this.loveOverlay);
     }
@@ -450,7 +450,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   public startSnore(): void {
     if (!this.snoreOverlay) {
       this.snoreOverlay = new SnoreOverlay();
-      this.snoreOverlay.x = this.width * 0.5;
+      this.snoreOverlay.x = this.width * 0.58;
       this.snoreOverlay.y = 42;
       this.addChild(this.snoreOverlay);
     }
