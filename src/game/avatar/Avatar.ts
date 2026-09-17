@@ -18,6 +18,7 @@ import { PARTS_CONFIG, getPartsInOrder, PartConfig } from './partsConfig';
 import ClotheRegistry from './ClotheRegistry';
 import * as ZOrder from '../../modules/common/ZOrder';
 import { AvatarBubble } from './AvatarBubble';
+import { AvatarEmote } from './AvatarEmote';
 
 // 10	2	6
 // 8	1	4
@@ -31,6 +32,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   // SPRITES
   socle: Sprite | null = null;
   private bubble: AvatarBubble | null = null;
+  private emoteOverlay: AvatarEmote | null = null;
   private usernameNameplate: Container | null = null;
   legs: AvatarLegs | null = null;
   arms: AvatarArms[] = [];
@@ -398,6 +400,25 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   /** Hide the speech bubble immediately. */
   public stopSaying(): void {
     this.bubble?.hide();
+  }
+
+  /**
+   * Display a floating icon above the avatar — smile (12-frame emoji set,
+   * `assets/images/emojis/{1-12}.png`), coeurs, or zzz. See AvatarEmote.
+   * @param textureUrl Image to show.
+   * @param duration   ms before auto-hide (default 4s, matches the
+   *                   original Smile.as's setInterval(kill, 4000)).
+   * @param pulse      Continuous scale pulse — used for LOVE only.
+   */
+  public emote(textureUrl: string, duration = 4000, pulse = false): void {
+    if (!this.emoteOverlay) {
+      this.emoteOverlay = new AvatarEmote();
+      // Same anchor spot as the speech bubble's tail tip, above the head.
+      this.emoteOverlay.x = this.width * 0.55;
+      this.emoteOverlay.y = 20;
+      this.addChild(this.emoteOverlay);
+    }
+    this.emoteOverlay.show(textureUrl, duration, pulse);
   }
 
   /**
