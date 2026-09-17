@@ -12,6 +12,7 @@ import {Tshirt} from './structure/parts/clothes/parts/Tshirt';
 import {Hat} from './structure/parts/clothes/parts/Hat';
 import {Hair} from './structure/parts/clothes/parts/Hair';
 import {ClotheSleeve} from './structure/parts/clothes/ClotheSleeve';
+import {TimedClothe} from './structure/parts/clothes/TimedClothe';
 import { IHasPoints } from '../../modules/common/abstract/IHasPoints';
 import { Point } from '../../core/types/Point';
 import { PARTS_CONFIG, getPartsInOrder, PartConfig } from './partsConfig';
@@ -322,10 +323,11 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * Change a specific clothing item
    */
   public changeClothing(category: string, id?: string): boolean {
-    // Remove existing clothing of this category, and any sleeve overlays it owns.
+    // Remove existing clothing of this category, and any sleeve/timed-overlay it owns.
     this.parts = this.parts.filter(part => {
       const owned = part.constructor.name.toLowerCase().includes(category.toLowerCase())
-        || (part instanceof ClotheSleeve && part.category === category);
+        || (part instanceof ClotheSleeve && part.category === category)
+        || (part instanceof TimedClothe && part.category === category);
       if (owned) this.removeChild(part);
       return !owned;
     });
@@ -340,6 +342,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
         this.parts.splice(insertIndex, 0, newClothe);
         if (config?.hasSleeves) this.attachSleeves(category, id);
+        if (config?.hasTimedOverlay) this.attachTimedOverlay(category, id);
         this.syncArmDepthForDirection(this._direction);
         this.renderParts();
         return true;
@@ -367,6 +370,24 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
       const sleeve = new ClotheSleeve(clothingId, category, side, this._direction);
       this.parts.splice(armIndex + 1, 0, sleeve);
     });
+  }
+
+  /**
+   * Insert a decorative `TimedClothe` overlay for a just-equipped item,
+   * right above the item's own layer (it must draw on top of it — see
+   * TimedClothe's class doc) but not tied to any body part's z-order the
+   * way a sleeve is, so it just sits right after the clothing item itself
+   * in `this.parts`.
+   */
+  private attachTimedOverlay(category: string, clothingId: string): void {
+    const itemIndex = this.parts.findIndex(p =>
+      p.constructor.name.toLowerCase().includes(category.toLowerCase()));
+    if (itemIndex === -1) {
+      console.warn(`[Avatar] no ${category} part found — timed overlay for ${clothingId} skipped`);
+      return;
+    }
+    const overlay = new TimedClothe(clothingId, category, this._direction);
+    this.parts.splice(itemIndex + 1, 0, overlay);
   }
 
   private findInsertionIndex(targetOrder: number): number {
