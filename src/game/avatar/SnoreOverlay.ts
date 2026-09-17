@@ -98,7 +98,8 @@ export class SnoreOverlay extends Container {
       z.text.x = z.baseX + DRIFT_X * t;
       z.text.y = DRIFT_Y * t;
       z.text.alpha = t < 0.15 ? t / 0.15 : 1 - Math.max(0, (t - 0.7) / 0.3);
-      z.text.scale.set(0.7 + t * 0.5);
+      // Shrinks as it rises (user's spec) — was growing, backwards.
+      z.text.scale.set(1.15 - t * 0.65);
     }
 
     this.rafId = requestAnimationFrame(this.onFrame);

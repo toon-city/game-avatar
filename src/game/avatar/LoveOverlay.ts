@@ -1,8 +1,9 @@
 import { Assets, Container, Sprite, Spritesheet } from 'pixi.js';
 import { AssetBaseUrl } from '../../core/AssetBaseUrl';
 
+// Avatar-local units, not CSS px — see SmileOverlay.ts's SIZE comment.
 const HEART_SIZE = 34; // on-screen width per heart
-const SPREAD = 2.4; // px per SWF unit — turns love.json's threeHeartLayout offsets (a ~30-unit spread) into a compact ~70px-wide cluster
+const SPREAD = 2.4; // px per SWF unit — turns love.json's threeHeartLayout offsets (a ~30-unit spread) into a compact cluster
 const PULSE_PERIOD = 900; // ms per pulse cycle
 // Duration = the original's 200-frame "love" clip / its declared 24fps —
 // this plays through uninterrupted once triggered (AS2: launchLove() only
@@ -65,11 +66,22 @@ export class LoveOverlay extends Container {
       const layout = (sheet.data.meta as { threeHeartLayout?: { hearts: HeartLayout[] } }).threeHeartLayout;
       const texture = sheet.textures['coeur'];
       if (!texture || !layout) return;
+      // Middle heart (index 1) is the one meant to sit directly above the
+      // head — its own x/y in threeHeartLayout aren't 0 (positioned
+      // relative to the composed art's own origin, not to the head), so
+      // re-center every heart relative to IT rather than using the raw
+      // offsets as-is. In the original, the middle heart has the SMALLEST
+      // y (SWF y grows downward — smaller y = higher up), i.e. it sits
+      // ABOVE the two side hearts; preserve that same relative order (was
+      // inverted before: `-h.y` flipped which pair ended up higher).
+      const centerX = layout.hearts[1]?.x ?? 0;
+      const centerY = layout.hearts[1]?.y ?? 0;
+      const LIFT = 14; // px the whole cluster floats above the anchor point
       layout.hearts.forEach((h, i) => {
         const heart = this.hearts[i];
         heart.texture = texture;
-        heart.x = h.x * SPREAD;
-        heart.y = -h.y * SPREAD; // SWF y grows downward, our overlay sits above the head (negative y)
+        heart.x = (h.x - centerX) * SPREAD;
+        heart.y = (h.y - centerY) * SPREAD - LIFT;
         this.baseScale[i] = HEART_SIZE / texture.width;
         heart.scale.set(this.baseScale[i]);
       });

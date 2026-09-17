@@ -415,8 +415,13 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     this.stopSnore();
     if (!this.smileOverlay) {
       this.smileOverlay = new SmileOverlay();
-      this.smileOverlay.x = this.width * 0.55;
-      this.smileOverlay.y = 20;
+      // Centered on the head (0.5, not the speech bubble's 0.55 — that
+      // offset exists only to clear room for the bubble's own tail, which
+      // this doesn't have), and much closer to head-top than the speech
+      // bubble's y:20 — that gap reads right for a text bubble that needs
+      // to clear its own tail, but left this floating well above the head.
+      this.smileOverlay.x = this.width * 0.36;
+      this.smileOverlay.y = 28;
       this.addChild(this.smileOverlay);
     }
     this.smileOverlay.show(slot);
@@ -427,8 +432,8 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     this.stopSnore();
     if (!this.loveOverlay) {
       this.loveOverlay = new LoveOverlay();
-      this.loveOverlay.x = this.width * 0.55;
-      this.loveOverlay.y = 20;
+      this.loveOverlay.x = this.width * 0.5;
+      this.loveOverlay.y = 40;
       this.addChild(this.loveOverlay);
     }
     this.loveOverlay.show();
@@ -445,8 +450,8 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   public startSnore(): void {
     if (!this.snoreOverlay) {
       this.snoreOverlay = new SnoreOverlay();
-      this.snoreOverlay.x = this.width * 0.55;
-      this.snoreOverlay.y = 20;
+      this.snoreOverlay.x = this.width * 0.5;
+      this.snoreOverlay.y = 42;
       this.addChild(this.snoreOverlay);
     }
     this.snoreOverlay.start();
