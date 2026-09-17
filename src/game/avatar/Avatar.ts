@@ -181,28 +181,21 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   private static readonly VALID_DIRECTIONS = new Set([1, 2, 4, 5, 6, 8, 9, 10]);
 
   /**
-   * Directions where the character is three-quarter-turned enough that BOTH
-   * arms have full, prominent artwork on each side — putting both in front
-   * there reads as a second pair of limbs (see bffe8b7's commit message).
-   * For every other direction (straight facing, incl. pure left/right) the
-   * "behind" arm's own art is either a near-empty stub (4/8: nothing to see
-   * regardless of order) or a thin symmetric sliver (1/2: anatomically
-   * correct to show on both sides, not a duplicate limb) — so keeping the
-   * right arm behind there only costs visibility for no depth-cue benefit.
-   */
-  private static readonly DIAGONAL_DIRECTIONS = new Set([5, 6, 9, 10]);
-
-  /**
    * Move the right arm ('behind everything', order 0 in partsConfig.ts) to
-   * sit right in front of the shirt alongside the left arm — same role,
-   * same depth — whenever the current facing isn't one of the diagonals
-   * that motivated keeping it behind in the first place. Straight-facing
-   * poses (front/back/pure left/right) never show two full limbs even with
-   * both arms in front, so there's no double-limb risk to guard against
-   * there, and pure left/right needed this: the front arm's own sliver
-   * there is only 2-3px wide and was reading as "no arm at all" — right's
-   * matching sliver piles onto the same spot, which is the only lever
-   * available without new art.
+   * sit right in front of pant/tshirt, alongside the left arm — same role,
+   * same depth, in every direction. Its sleeve (if any) is carried along to
+   * stay directly on top of it, since `attachSleeves()` only positions a
+   * sleeve relative to its arm at *equip* time and never revisits that on a
+   * later direction change — without this, moving the arm would leave the
+   * sleeve behind at its old slot, detached from the arm it's meant to
+   * cover.
+   *
+   * An earlier version of this kept the right arm behind for the four
+   * diagonal directions specifically (5/6/9/10), reasoning that both arms
+   * having full, prominent art there would read as a second pair of limbs
+   * (see bffe8b7's commit message) — reverted per explicit request: the
+   * right arm (and by extension its sleeve) must render above pant/tshirt
+   * in every direction except straight up/down, which this already did.
    *
    * Purely reorders `this.parts` (returns whether it actually changed
    * anything) — callers decide whether/when to re-run `renderParts()`, so
@@ -212,19 +205,18 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * "front" placement the moment a new tshirt gets spliced in between the
    * two arms).
    */
-  private syncArmDepthForDirection(direction: number): boolean {
+  private syncArmDepthForDirection(_direction: number): boolean {
     const rightArm = this.parts.find((p): p is AvatarArms => p instanceof AvatarArms && p.side === 'right');
     if (!rightArm) return false;
+    const rightSleeve = this.parts.find((p): p is ClotheSleeve => p instanceof ClotheSleeve && p.side === 'right');
 
-    const wantsFront = !Avatar.DIAGONAL_DIRECTIONS.has(direction);
-    const withoutRight = this.parts.filter(p => p !== rightArm);
+    const withoutRight = this.parts.filter(p => p !== rightArm && p !== rightSleeve);
     const leftArmIndex = withoutRight.findIndex(p => p instanceof AvatarArms && p.side === 'left');
-    const targetIndex = wantsFront
-      ? (leftArmIndex === -1 ? withoutRight.length : leftArmIndex)
-      : 0;
+    const targetIndex = leftArmIndex === -1 ? withoutRight.length : leftArmIndex;
 
     const reordered = [...withoutRight];
     reordered.splice(targetIndex, 0, rightArm);
+    if (rightSleeve) reordered.splice(targetIndex + 1, 0, rightSleeve);
 
     const unchanged = reordered.length === this.parts.length
       && reordered.every((part, i) => part === this.parts[i]);
