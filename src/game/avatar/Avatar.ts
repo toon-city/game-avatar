@@ -18,8 +18,8 @@ import { PARTS_CONFIG, getPartsInOrder, PartConfig } from './partsConfig';
 import ClotheRegistry from './ClotheRegistry';
 import * as ZOrder from '../../modules/common/ZOrder';
 import { AvatarBubble } from './AvatarBubble';
-import { SmileOverlay } from './SmileOverlay';
-import { LoveOverlay } from './LoveOverlay';
+import { SmileOverlay, DURATION as SMILE_DURATION } from './SmileOverlay';
+import { LoveOverlay, DURATION as LOVE_DURATION } from './LoveOverlay';
 import { SnoreOverlay } from './SnoreOverlay';
 
 // 10	2	6
@@ -420,11 +420,20 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
       // this doesn't have), and much closer to head-top than the speech
       // bubble's y:20 — that gap reads right for a text bubble that needs
       // to clear its own tail, but left this floating well above the head.
-      this.smileOverlay.x = this.width * 0.30;
+      this.smileOverlay.x = 0;
       this.smileOverlay.y = 28;
       this.addChild(this.smileOverlay);
     }
     this.smileOverlay.show(slot);
+    // Overlay is a child of this avatar, so it draws wherever this avatar's
+    // own zIndex places it among its siblings (other avatars/furniture) —
+    // it doesn't automatically float above a neighbour just because it's
+    // visually higher on screen. Bump to the EFFECT layer (always wins,
+    // see ZOrder.compute) for as long as the bubble is up, then revert —
+    // hide() fires on its own internal timer this class never hears about,
+    // hence the matching setTimeout here instead of a callback.
+    this.updateZIndex();
+    setTimeout(() => this.updateZIndex(), SMILE_DURATION);
   }
 
   /** Play the "cœurs" animation above the avatar's head. */
@@ -437,6 +446,9 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
       this.addChild(this.loveOverlay);
     }
     this.loveOverlay.show();
+    // Same reasoning as playSmile() above.
+    this.updateZIndex();
+    setTimeout(() => this.updateZIndex(), LOVE_DURATION);
   }
 
   /**
@@ -455,11 +467,15 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
       this.addChild(this.snoreOverlay);
     }
     this.snoreOverlay.start();
+    // Same reasoning as playSmile() — no fixed duration here, so no revert
+    // timer to schedule; stopSnore() below calls updateZIndex() itself.
+    this.updateZIndex();
   }
 
   /** Stop the snore loop immediately, if running. */
   public stopSnore(): void {
     this.snoreOverlay?.stop();
+    this.updateZIndex();
   }
 
   /**
@@ -529,12 +545,23 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   public updateZIndex(): void {
     // Use body bottom (feet) for depth, excluding the socle which sits below the feet
     const feetY = this.socle ? this.socle.y : this.height;
+    // Smile/love/snore overlays are children of this avatar (they need to
+    // move/rotate with it), so they draw wherever THIS avatar's own zIndex
+    // places it among its siblings (other avatars/furniture) — a neighbour
+    // depth-sorted in front of this avatar covers the bubble too, even
+    // though it's visually well above the avatar's head. Bumping to the
+    // EFFECT layer (always wins — see ZOrder.compute's layer*10_000_000
+    // term) for as long as any overlay is showing keeps the emote readably
+    // on top of the room instead of being clipped by whoever's standing
+    // nearby; see playSmile/playLove/startSnore/stopSnore for the calls
+    // that keep this in sync with each overlay's own show/hide timing.
+    const emoting = !!(this.smileOverlay?.visible || this.loveOverlay?.visible || this.snoreOverlay?.visible);
     // +0.5 px de biais : garantit que l'avatar est dans un bucket de profondeur
     // supérieur à la porte même quand feetY ≈ doorMidY (round((y+0.5)*100) > round(y*100))
     this.zIndex = ZOrder.compute({
       x: this.x,
       y: this.y + feetY + 0.5,
-      layer: ZOrder.ZPriority.SCENE,
+      layer: emoting ? ZOrder.ZPriority.EFFECT : ZOrder.ZPriority.SCENE,
       offset: 3 // avatar : toujours devant porte(2), plinthe(1), mur(0)
     });
   }

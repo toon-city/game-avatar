@@ -13,7 +13,10 @@ const BUBBLE_SIZE = 60; // the shared octagon background is bigger than the face
 // Used to lift the face sprite so it centers on the hexagon, not on the
 // bubble asset's full (hexagon + dangling dots) bounding box.
 const HEXAGON_CENTER_FRAC = 0.614;
-const DURATION = 4000; // matches the original Smile.as's setInterval(kill, 4000)
+// Exported: Avatar needs this to schedule its own matching zIndex-revert
+// timer (see Avatar.playSmile) since hide() below fires on its own internal
+// timer, not something Avatar gets notified of.
+export const DURATION = 4000; // matches the original Smile.as's setInterval(kill, 4000)
 const FADE_OUT = 300; // ms, tail-end fade instead of an abrupt pop-out
 
 let sheetPromise: Promise<Spritesheet> | null = null;

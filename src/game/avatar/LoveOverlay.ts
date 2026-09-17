@@ -2,14 +2,17 @@ import { Assets, Container, Sprite, Spritesheet } from 'pixi.js';
 import { AssetBaseUrl } from '../../core/AssetBaseUrl';
 
 // Avatar-local units, not CSS px — see SmileOverlay.ts's SIZE comment.
-const HEART_SIZE = 34; // on-screen width per heart
+const HEART_SIZE = 25; // on-screen width per heart
 const SPREAD = 2.4; // px per SWF unit — turns love.json's threeHeartLayout offsets (a ~30-unit spread) into a compact cluster
-const PULSE_PERIOD = 900; // ms per pulse cycle
+const PULSE_PERIOD = 1500; // ms per pulse cycle
 // Duration = the original's 200-frame "love" clip / its declared 24fps —
 // this plays through uninterrupted once triggered (AS2: launchLove() only
 // gets cancelled by a NEW launchZZ(), never by a timer), a real multi-
 // second moment rather than a quick pulse.
-const DURATION = 8300;
+// Exported: Avatar needs this to schedule its own matching zIndex-revert
+// timer (see Avatar.playLove) since hide() below fires on its own internal
+// timer, not something Avatar gets notified of.
+export const DURATION = 5000;
 const FADE_OUT = 400;
 
 let sheetPromise: Promise<Spritesheet> | null = null;
