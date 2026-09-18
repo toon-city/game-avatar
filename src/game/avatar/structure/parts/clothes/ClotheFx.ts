@@ -11,12 +11,18 @@ import {AssetBaseUrl} from '../../../../../core/AssetBaseUrl';
  * gait or direction. swf_to_rig.py's classify_root_use() pulls them out
  * before the torso is composed (so the torso is a single static frame like
  * every other top) and exports each as its own frame sequence, listed under
- * `meta.fx[direction]` as the `animations` key to play — a garment can carry
- * more than one, hence `slot`, an index into that list.
+ * `meta.fx[direction]` — a garment can carry more than one, hence `slot`, an
+ * index into that list.
  *
- * Frames are already placed like any ordinary frame (their trim IS their
- * canvas position, no runtime matrix or pivot needed), since these clips
- * don't rotate or attach to a moving limb the way the arm/sleeve do.
+ * The SAME clip is normally reused by every direction with only its
+ * placement differing (a chest decal moves with the shirt, but doesn't
+ * redraw itself over it), so its frames are shared rather than duplicated:
+ * `meta.fx[direction][slot]` is `{anim, x, y, mirror}` — `anim` names the
+ * `animations` entry (shared across directions that use the same clip),
+ * `x, y` is where this direction places it and `mirror` whether to flip it,
+ * both applied here instead of being baked into the art. The rare direction
+ * that genuinely rotates the clip gets its own one-off baked `anim` instead,
+ * with `x: 0, y: 0, mirror: false` (already placed, nothing left to apply).
  *
  * Always playing once it has frames: there is no walk/stop split here, same
  * as the original, and Avatar.changeClothing() attaches one instance per
@@ -80,16 +86,23 @@ export class ClotheFx extends AnimatedSprite implements IAvatarPart {
 
   private applyDirection(): void {
     const sheet = Assets.cache.get(this.fileURI);
-    const key = sheet?.data?.meta?.fx?.[String(this._direction)]?.[this.slot];
-    const names: string[] = (key && sheet?.data?.animations?.[key]) ?? [];
+    const entry = sheet?.data?.meta?.fx?.[String(this._direction)]?.[this.slot];
+    const names: string[] = (entry && sheet?.data?.animations?.[entry.anim]) ?? [];
     const frames = names.filter(n => Assets.cache.has(n)).map(n => Texture.from(n));
 
-    if (frames.length === 0) {
+    if (!entry || frames.length === 0) {
       this.stop();
       this.textures = [Texture.EMPTY];
       this.texture = Texture.EMPTY;
       return;
     }
+
+    // Every length in a sheet is in ATLAS px; PixiJS divides the texture's
+    // own trim by `meta.scale` when it builds it, and this position has to
+    // go through the same division to land on the same point.
+    const scale = Number(sheet?.data?.meta?.scale ?? 1) || 1;
+    this.position.set(entry.x / scale, entry.y / scale);
+    this.scale.x = entry.mirror ? -1 : 1;
 
     this.textures = frames;
     this.texture = frames[0] as Texture;
