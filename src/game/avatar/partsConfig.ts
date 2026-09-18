@@ -41,11 +41,11 @@ export const PARTS_CONFIG: PartConfig[] = [
   { category: 'body', className: 'AvatarLegs',              order: 2, required: true },
   { category: 'body', className: 'AvatarBody',              order: 3, required: true },
   { category: 'body', className: 'AvatarHead',              order: 4, required: true },
-  { category: 'pant',   className: 'Pant',   order: 5 },
+  { category: 'pant',   className: 'Pant',   order: 5, hasFx: true },
   { category: 'tshirt', className: 'Tshirt', order: 6, hasArm: true, hasFx: true },
-  { category: 'face',   className: 'Face',   order: 7 },
-  { category: 'hair',   className: 'Hair',   order: 8 },
-  { category: 'hat',    className: 'Hat',    order: 9 }
+  { category: 'face',   className: 'Face',   order: 7, hasFx: true },
+  { category: 'hair',   className: 'Hair',   order: 8, hasFx: true },
+  { category: 'hat',    className: 'Hat',    order: 9, hasFx: true }
 ];
 
 export function getPartsInOrder(): PartConfig[] {
