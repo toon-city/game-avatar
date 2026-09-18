@@ -1,8 +1,7 @@
-import {Clothe} from '../Clothe';
+import {AnimatedClothe} from '../AnimatedClothe';
 
-export class Face extends Clothe {
+export class Face extends AnimatedClothe {
   constructor(identifier: string = 'face_default', direction?: number) {
-    super('face', identifier, direction ?? 1);
-    // No manual position: the texture's own trim metadata places it (see Clothe's class doc).
+    super(identifier, 'face', direction ?? 1);
   }
 }

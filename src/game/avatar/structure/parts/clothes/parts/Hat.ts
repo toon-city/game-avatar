@@ -1,7 +1,7 @@
-import {Clothe} from '../Clothe';
+import {AnimatedClothe} from '../AnimatedClothe';
 
-export class Hat extends Clothe {
+export class Hat extends AnimatedClothe {
   constructor(identifier: string = 'hat_default', direction?: number) {
-    super('hat', identifier, direction ?? 1);
+    super(identifier, 'hat', direction ?? 1);
   }
 }

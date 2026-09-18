@@ -5,14 +5,6 @@ export type PartConfig = {
   order: number;
   required?: boolean;
   /**
-   * Clothing only: this category can also render animated arm-sleeve overlays
-   * (see ClotheSleeve) from the SAME item's spritesheet. Avatar.changeClothing()
-   * inserts/removes them next to the matching AvatarArms('right'/'left') parts —
-   * not through this config's own `order`, since a sleeve must share its arm's
-   * z-order, not the item's.
-   */
-  hasSleeves?: boolean;
-  /**
    * Clothing only: this category can also render a `TimedClothe` decorative
    * overlay (e.g. Michael1's twinkling stars) from the SAME item's
    * spritesheet, looping on its own real-time clock regardless of walking —
@@ -23,27 +15,27 @@ export type PartConfig = {
   hasTimedOverlay?: boolean;
 };
 
+/**
+ * Draw order, taken from the original rig's own depths (perso_V3.swf, sprite
+ * "toon"): bras2 1 < bras1 7 < jambes 13 < torse 24 < tete 31 < vbas 39 <
+ * vmilieu 41 < maquillage 43 < cheveux 45 < casquette 47.
+ *
+ * Both body arms sit BEHIND the torso, and every garment sits in front of the
+ * whole body — which is exactly why a garment can carry the arm the rig does
+ * not draw for that facing (see swf_to_rig.py) and have it read correctly in
+ * front of the fabric.
+ */
 export const PARTS_CONFIG: PartConfig[] = [
-  // Right arm behind everything (torso included) — the "far" arm for the
-  // diagonal/side directions, tucked mostly out of sight behind the body
-  // to sell depth. Putting it in front of the shirt too (tried once) made
-  // every diagonal direction show both arms fully, reading as a second
-  // pair of limbs instead of "one arm swung forward, one behind" — put
-  // back after that was reported. Left arm is the one that stays in front.
   { category: 'body', className: 'AvatarArms', id: 'right', order: 0, required: true },
-  { category: 'body', className: 'AvatarLegs',             order: 1, required: true },
-  { category: 'body', className: 'AvatarBody',             order: 2, required: true },
-  // Pants sit on top of the torso — drawn over the shirt hem, not tucked
-  // under it.
-  { category: 'pant', className: 'Pant', order: 2.5 },
-  { category: 'tshirt', className: 'Tshirt', order: 3, hasSleeves: true, hasTimedOverlay: true },
-  { category: 'body', className: 'AvatarArms', id: 'left',  order: 4, required: true },
-  { category: 'body', className: 'AvatarHead',             order: 5, required: true },
-  { category: 'hair', className: 'Hair', order: 6 },
-  // Face accessories (glasses, mask) sit over hair but under a hat's brim.
-  // Default order, easy to flip to 5.5 (before hair) if a design needs it.
-  { category: 'face', className: 'Face', order: 6.5 },
-  { category: 'hat',  className: 'Hat',  order: 7 }
+  { category: 'body', className: 'AvatarArms', id: 'left',  order: 1, required: true },
+  { category: 'body', className: 'AvatarLegs',              order: 2, required: true },
+  { category: 'body', className: 'AvatarBody',              order: 3, required: true },
+  { category: 'body', className: 'AvatarHead',              order: 4, required: true },
+  { category: 'pant',   className: 'Pant',   order: 5 },
+  { category: 'tshirt', className: 'Tshirt', order: 6, hasTimedOverlay: true },
+  { category: 'face',   className: 'Face',   order: 7 },
+  { category: 'hair',   className: 'Hair',   order: 8 },
+  { category: 'hat',    className: 'Hat',    order: 9 }
 ];
 
 export function getPartsInOrder(): PartConfig[] {

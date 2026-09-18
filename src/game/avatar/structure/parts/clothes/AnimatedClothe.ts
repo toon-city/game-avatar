@@ -3,39 +3,40 @@ import {IClothe} from './IClothe';
 import {AssetBaseUrl} from '../../../../../core/AssetBaseUrl';
 
 /**
- * Base class for a clothing layer that animates through its own walk cycle
- * (currently: pants) — sibling of `Clothe`, not a subclass of it: `Clothe`
- * extends `Sprite` (one static texture per direction), this extends
- * `AnimatedSprite` (a texture array per direction), and PIXI doesn't let a
- * class be both.
+ * A clothing layer: hair, hat, face, top or bottom. One class for all of them,
+ * because in the original every garment is the same thing — a clip dropped into
+ * a named placeholder on the body rig and pinned to the current CA state
+ * (User.as: `clipType.vmilieu.vetmil.gotoAndStop(_action.CA)`), whose own
+ * nested clips then animate on Flash's auto-play while walking.
  *
- * Unlike `ClotheSleeve` (arm-sleeve overlays), this does NOT need to be
- * frame-locked to any body part's animation. A sleeve has to match the arm
- * it partially reveals frame-for-frame, or the body's own arm shows through
- * misaligned. An item using this class sits at a z-order that fully covers
- * what's underneath (e.g. `Pant`, order 2.5 in partsConfig.ts), so nothing
- * of the body is ever visible through it; its own frame *content* is
- * entirely independent of the body's, no per-frame matching needed.
+ * So a garment is never "static" by kind, only by content: an item with one
+ * frame for a facing simply doesn't animate there (playing an AnimatedSprite
+ * with a single texture does nothing visible). A hat and a walking pair of
+ * trousers go through the exact same code path.
  *
- * Its *timing* is a different story: with an unrelated frame count but the
- * same flat `baseAnimationSpeed`, the garment's swing cycle and the leg's
- * own gait cycle have different periods and drift in and out of phase
- * continuously — visible even with the leg itself fully hidden, since the
- * mismatch reads as "two things animating at odds" on its own. The optional
- * `syncAnimations` param (same `Texture[][]` shape as
+ * On the facings where the body rig draws no arm — profiles and upper
+ * diagonals — the limb comes from the top, as a sibling `ClotheArm` layer
+ * drawn UNDER this one so the sleeve covers it and it can be tinted with the
+ * player's skin while the fabric isn't. See game-assets/tools/swf_to_rig.py.
+ *
+ * Timing: with an unrelated frame count but the same flat
+ * `baseAnimationSpeed`, a garment's swing cycle and the legs' gait have
+ * different periods and drift in and out of phase continuously — visible on
+ * its own as "two things animating at odds". The optional `syncAnimations`
+ * param (same `Texture[][]` shape as
  * `BaseTextureLoader.HUMAN_LEGS_ANIMATIONS`, indexed by `direction - 1`)
- * fixes that by scaling `animationSpeed` per direction so this item's cycle
- * takes exactly as many ticks as the reference animation's — same start
- * (both fire from `Avatar.walk()`), same period, so they stay phase-locked
- * indefinitely instead of only briefly lining up. Still no frame-for-frame
- * matching, just matched cycle length.
+ * scales `animationSpeed` per direction so this item's cycle takes exactly as
+ * many ticks as the reference's — same start (both fire from `Avatar.walk()`),
+ * same period, phase-locked indefinitely. Still no frame-for-frame matching,
+ * just matched cycle length.
  *
- * Frame contract: `{id}_{direction}_{n}.png`, `n` starting at 0, same 80x120
- * trim canvas as `Clothe` (see its class doc — no app-side offset here
- * either). A direction with only `_0.png` is a static item for that facing
- * (playing an AnimatedSprite with one texture does nothing visible) — this
- * is how a non-animated bottom (a skirt) is expressed, not a separate code
- * path.
+ * Frame contract: `{id}_{direction}_0.png` is the stop pose and the sheet's
+ * `animations["{id}_wlk_{direction}"]` lists the walk cycle, on the same 80x120
+ * trim canvas as everything else — the exporter bakes placement into each
+ * frame's trim metadata, there is no app-side offset here. The walk list names
+ * the same frame several times where Flash held one drawing across several
+ * frames, so its length is the real cycle length even though the sheet holds
+ * far fewer images.
  */
 export class AnimatedClothe extends AnimatedSprite implements IClothe {
   private _direction: number;
@@ -50,6 +51,9 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
     private readonly baseAnimationSpeed = 0.22,
     /** See class doc — optional per-direction reference animation to phase-lock this item's cycle length to. */
     private readonly syncAnimations?: Texture[][],
+    /** Sheet to load frames from, when it isn't named after `identifier` — a
+     *  garment's sleeve layer (ClotheSleeve) lives in its garment's own sheet. */
+    private readonly sheetId?: string,
   ) {
     super([Texture.EMPTY]);
     this._identifier = identifier;
@@ -64,7 +68,7 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
   }
 
   public get fileURI(): string {
-    return AssetBaseUrl.resolve(`clothes/${this._type}/${this._identifier}.json`);
+    return AssetBaseUrl.resolve(`clothes/${this._type}/${this.sheetId ?? this._identifier}.json`);
   }
 
   public get identifier(): string {
@@ -78,7 +82,7 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
   public set direction(dir: number) {
     // No-op on an unchanged direction: reassigning textures would restart
     // the animation mid-stride for nothing (same guard as
-    // AvatarAnimatedBodyPart/ClotheSleeve).
+    // AvatarAnimatedBodyPart).
     if (dir === this._direction) return;
     this._direction = dir;
     this.applyDirection();
@@ -88,9 +92,9 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
     return this._walking;
   }
 
-  setTint(): void {
+  setTint(_tint: number): void {
     // The garment carries its own colors — never tinted by skin color,
-    // same as ClotheSleeve.
+    // carries its own colours.
   }
 
   walk(): void {
@@ -117,16 +121,14 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
     return this.baseAnimationSpeed * (ownFrameCount / refCount);
   }
 
-  /** Collect `{identifier}_{direction}_{n}.png` for n = 0, 1, 2, ... until one is missing. */
+  /** The stop pose followed by this direction's walk cycle — see class doc. */
   private framesForCurrentDirection(): Texture[] {
     if (!Assets.cache.has(this.fileURI)) return [];
-    const frames: Texture[] = [];
-    for (let n = 0; ; n++) {
-      const name = `${this._identifier}_${this._direction}_${n}.png`;
-      if (!Assets.cache.has(name)) break;
-      frames.push(Texture.from(name));
-    }
-    return frames;
+    const sheet = Assets.cache.get(this.fileURI);
+    const walk: string[] = sheet?.data?.animations?.[`${this._identifier}_wlk_${this._direction}`] ?? [];
+    const stop = `${this._identifier}_${this._direction}_0.png`;
+    const names = Assets.cache.has(stop) ? [stop, ...walk] : walk;
+    return names.filter(n => Assets.cache.has(n)).map(n => Texture.from(n));
   }
 
   private applyDirection(): void {
@@ -135,7 +137,7 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
     if (frames.length === 0) {
       // Nothing authored for this direction — render nothing rather than
       // freezing on a stale pose from a previous direction (same as
-      // ClotheSleeve's "no sleeve on this facing" case).
+      // "no artwork for this facing" case).
       this.stop();
       this.textures = [Texture.EMPTY];
       this.texture = Texture.EMPTY;

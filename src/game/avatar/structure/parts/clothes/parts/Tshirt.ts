@@ -1,13 +1,17 @@
-import {Clothe} from '../Clothe';
+import {AnimatedClothe} from '../AnimatedClothe';
+import {BaseTextureLoader} from '../../../../../textures/BaseTextureLoader';
 
-export class Tshirt extends Clothe {
+export class Tshirt extends AnimatedClothe {
   constructor(identifier: string = 'tshirt_default', direction?: number) {
-    super('tshirt', `${identifier}`, direction ?? 1);
-    // No manual position: the texture's own trim metadata places it (see Clothe's class doc).
-  }
-
-  // Get the URL of the texture based on the identifier and direction
-  protected override get textureUrl(): string {
-    return `${this.identifier}_bd_${this.direction}.png`;
+    super(
+      identifier,
+      'tshirt',
+      direction ?? 1,
+      0.22,
+      BaseTextureLoader.getInstance().HUMAN_LEGS_ANIMATIONS,
+    );
+    // A top carries the arm the body rig does not draw for this facing (see
+    // swf_to_rig.py), so it animates through its own walk frames like a pant
+    // does. Cycle length is phase-locked to the legs' — see AnimatedClothe.
   }
 }

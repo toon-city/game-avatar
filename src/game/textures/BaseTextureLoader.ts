@@ -98,146 +98,34 @@ export class BaseTextureLoader {
     await Assets.loadBundle('fonts');
   }
 
-  private loadAnimations() {
-    const animations = Object.values<string[]>(
-      Assets.cache.get('assets/toon/toon.json').data.animations
-    );
-    this._HUMAN_LEGS_ANIMATIONS = [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-    ];
-    for (const element of animations[0]) {
-      this._HUMAN_LEGS_ANIMATIONS[0].push(Texture.from(element));
-    }
+  /** Directions that have artwork — see the diagram at the top of Avatar.ts. */
+  private static readonly DIRECTIONS = [1, 2, 4, 5, 6, 8, 9, 10];
 
-    this._HUMAN_ARM_R_ANIMATIONS = [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-    ];
-    for (const element of animations[1]) {
-      this._HUMAN_ARM_R_ANIMATIONS[0].push(Texture.from(element));
+  /**
+   * Build `[direction - 1] -> Texture[]` from toon.json's `animations`, looked
+   * up BY NAME (`lg_wlk_4`, `ar_wlk_1`, ...).
+   *
+   * Not by position: the rig only draws arms in the directions it actually has
+   * them (both on face/back, the far one alone on the lower diagonals, none on
+   * profiles/upper diagonals — the garment supplies the arm there), so the set
+   * of animations is sparse and its ordering carries no meaning. A direction
+   * with no entry stays an empty array, which AvatarAnimatedBodyPart already
+   * reads as "no artwork for this facing".
+   */
+  private buildAnimations(prefix: string): Texture[][] {
+    const animations = Assets.cache.get('assets/toon/toon.json').data.animations ?? {};
+    const out: Texture[][] = Array.from({ length: 12 }, () => []);
+    for (const direction of BaseTextureLoader.DIRECTIONS) {
+      const frames: string[] | undefined = animations[`${prefix}_wlk_${direction}`];
+      if (frames) out[direction - 1] = frames.map(name => Texture.from(name));
     }
-
-    this._HUMAN_ARM_L_ANIMATIONS = [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-    ];
-    for (const element of animations[2]) {
-      this._HUMAN_ARM_L_ANIMATIONS[0].push(Texture.from(element));
-    }
-
-    for (const element of animations[3]) {
-      this._HUMAN_LEGS_ANIMATIONS[1].push(Texture.from(element));
-    }
-
-    for (const element of animations[4]) {
-      this._HUMAN_ARM_R_ANIMATIONS[1].push(Texture.from(element));
-    }
-
-    for (const element of animations[5]) {
-      this._HUMAN_ARM_L_ANIMATIONS[1].push(Texture.from(element));
-    }
-
-    for (const element of animations[6]) {
-      this._HUMAN_LEGS_ANIMATIONS[3].push(Texture.from(element));
-    }
-
-    for (const element of animations[7]) {
-      this._HUMAN_ARM_R_ANIMATIONS[3].push(Texture.from(element));
-    }
-
-    for (const element of animations[8]) {
-      this._HUMAN_ARM_L_ANIMATIONS[3].push(Texture.from(element));
-    }
-
-    for (const element of animations[9]) {
-      this._HUMAN_LEGS_ANIMATIONS[4].push(Texture.from(element));
-    }
-
-    for (const element of animations[10]) {
-      this._HUMAN_ARM_R_ANIMATIONS[4].push(Texture.from(element));
-    }
-
-    for (const element of animations[11]) {
-      this._HUMAN_ARM_L_ANIMATIONS[4].push(Texture.from(element));
-    }
-
-    for (const element of animations[12]) {
-      this._HUMAN_LEGS_ANIMATIONS[5].push(Texture.from(element));
-    }
-
-    for (const element of animations[13]) {
-      this._HUMAN_ARM_R_ANIMATIONS[5].push(Texture.from(element));
-    }
-
-    for (const element of animations[14]) {
-      this._HUMAN_ARM_L_ANIMATIONS[5].push(Texture.from(element));
-    }
-
-    for (const element of animations[15]) {
-      this._HUMAN_LEGS_ANIMATIONS[7].push(Texture.from(element));
-    }
-
-    for (const element of animations[16]) {
-      this._HUMAN_ARM_R_ANIMATIONS[7].push(Texture.from(element));
-    }
-
-    for (const element of animations[17]) {
-      this._HUMAN_ARM_L_ANIMATIONS[7].push(Texture.from(element));
-    }
-
-    for (const element of animations[18]) {
-      this._HUMAN_LEGS_ANIMATIONS[8].push(Texture.from(element));
-    }
-
-    for (const element of animations[19]) {
-      this._HUMAN_ARM_R_ANIMATIONS[8].push(Texture.from(element));
-    }
-
-    for (const element of animations[20]) {
-      this._HUMAN_ARM_L_ANIMATIONS[8].push(Texture.from(element));
-    }
-
-    for (const element of animations[21]) {
-      this._HUMAN_LEGS_ANIMATIONS[9].push(Texture.from(element));
-    }
-
-    for (const element of animations[22]) {
-      this._HUMAN_ARM_R_ANIMATIONS[9].push(Texture.from(element));
-    }
-
-    for (const element of animations[23]) {
-      this._HUMAN_ARM_L_ANIMATIONS[9].push(Texture.from(element));
-    }
+    return out;
   }
+
+  private loadAnimations() {
+    this._HUMAN_LEGS_ANIMATIONS = this.buildAnimations('lg');
+    this._HUMAN_ARM_L_ANIMATIONS = this.buildAnimations('al');
+    this._HUMAN_ARM_R_ANIMATIONS = this.buildAnimations('ar');
+  }
+
 }

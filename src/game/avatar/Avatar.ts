@@ -11,8 +11,10 @@ import {
 import {Tshirt} from './structure/parts/clothes/parts/Tshirt';
 import {Hat} from './structure/parts/clothes/parts/Hat';
 import {Hair} from './structure/parts/clothes/parts/Hair';
+import {ClotheArm} from './structure/parts/clothes/ClotheArm';
 import {ClotheSleeve} from './structure/parts/clothes/ClotheSleeve';
 import {TimedClothe} from './structure/parts/clothes/TimedClothe';
+import {BaseTextureLoader} from '../textures/BaseTextureLoader';
 import { IHasPoints } from '../../modules/common/abstract/IHasPoints';
 import { Point } from '../../core/types/Point';
 import { PARTS_CONFIG, getPartsInOrder, PartConfig } from './partsConfig';
@@ -171,6 +173,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * @param color skin color
    */
   public setSkinColor(color: number) {
+    this.skinColor = color;
     this.parts.forEach((part) => {
       if (this.partIsSkin(part)) {
         part.setTint(color);
@@ -178,54 +181,12 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     });
   }
 
+  /** Last colour passed to setSkinColor — a garment's skin layer is attached
+   *  after the fact (on equip) and has to pick it up, see attachSkin(). */
+  private skinColor = 0xffffff;
+
   /** Bitmask values that actually have artwork — see the diagram at the top of this file. */
   private static readonly VALID_DIRECTIONS = new Set([1, 2, 4, 5, 6, 8, 9, 10]);
-
-  /**
-   * Move the right arm ('behind everything', order 0 in partsConfig.ts) to
-   * sit right in front of pant/tshirt, alongside the left arm — same role,
-   * same depth, in every direction. Its sleeve (if any) is carried along to
-   * stay directly on top of it, since `attachSleeves()` only positions a
-   * sleeve relative to its arm at *equip* time and never revisits that on a
-   * later direction change — without this, moving the arm would leave the
-   * sleeve behind at its old slot, detached from the arm it's meant to
-   * cover.
-   *
-   * An earlier version of this kept the right arm behind for the four
-   * diagonal directions specifically (5/6/9/10), reasoning that both arms
-   * having full, prominent art there would read as a second pair of limbs
-   * (see bffe8b7's commit message) — reverted per explicit request: the
-   * right arm (and by extension its sleeve) must render above pant/tshirt
-   * in every direction except straight up/down, which this already did.
-   *
-   * Purely reorders `this.parts` (returns whether it actually changed
-   * anything) — callers decide whether/when to re-run `renderParts()`, so
-   * this can be called both on every direction change and defensively
-   * before every `renderParts()` (clothing changes reinsert parts by their
-   * static `partsConfig.ts` order, which would otherwise silently undo a
-   * "front" placement the moment a new tshirt gets spliced in between the
-   * two arms).
-   */
-  private syncArmDepthForDirection(_direction: number): boolean {
-    const rightArm = this.parts.find((p): p is AvatarArms => p instanceof AvatarArms && p.side === 'right');
-    if (!rightArm) return false;
-    const rightSleeve = this.parts.find((p): p is ClotheSleeve => p instanceof ClotheSleeve && p.side === 'right');
-
-    const withoutRight = this.parts.filter(p => p !== rightArm && p !== rightSleeve);
-    const leftArmIndex = withoutRight.findIndex(p => p instanceof AvatarArms && p.side === 'left');
-    const targetIndex = leftArmIndex === -1 ? withoutRight.length : leftArmIndex;
-
-    const reordered = [...withoutRight];
-    reordered.splice(targetIndex, 0, rightArm);
-    if (rightSleeve) reordered.splice(targetIndex + 1, 0, rightSleeve);
-
-    const unchanged = reordered.length === this.parts.length
-      && reordered.every((part, i) => part === this.parts[i]);
-    if (unchanged) return false;
-
-    this.parts = reordered;
-    return true;
-  }
 
   /**
    * Face the avatar towards `direction` (a LEFT/RIGHT/UP/DOWN bitmask).
@@ -269,7 +230,6 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
   /** Push the current direction down to every part. */
   private syncPartsDirection() {
-    if (this.syncArmDepthForDirection(this._direction)) this.renderParts();
     this.parts.forEach((part) => {
       part.direction = this._direction;
     });
@@ -323,10 +283,11 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * Change a specific clothing item
    */
   public changeClothing(category: string, id?: string): boolean {
-    // Remove existing clothing of this category, and any sleeve/timed-overlay it owns.
+    // Remove existing clothing of this category, and any arm/sleeve/timed-overlay it owns.
     this.parts = this.parts.filter(part => {
       const owned = part.constructor.name.toLowerCase().includes(category.toLowerCase())
-        || (part instanceof ClotheSleeve && part.category === category)
+        || ((part instanceof ClotheArm || part instanceof ClotheSleeve)
+            && part.category === category)
         || (part instanceof TimedClothe && part.category === category);
       if (owned) this.removeChild(part);
       return !owned;
@@ -341,35 +302,37 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
         const insertIndex = config ? this.findInsertionIndex(config.order) : this.parts.length;
 
         this.parts.splice(insertIndex, 0, newClothe);
-        if (config?.hasSleeves) this.attachSleeves(category, id);
+        this.attachArm(category, id);
         if (config?.hasTimedOverlay) this.attachTimedOverlay(category, id);
-        this.syncArmDepthForDirection(this._direction);
         this.renderParts();
         return true;
       }
     }
 
-    this.syncArmDepthForDirection(this._direction);
     this.renderParts();
     return false;
   }
 
   /**
-   * Insert left/right sleeve overlays for a just-equipped item, each right
-   * next to the AvatarArms instance it must share a z-order with (whatever
-   * `partsConfig.ts` currently gives that arm) — see ClotheSleeve's class
-   * doc.
+   * Stack a just-equipped item's own arm and sleeve on top of it, in the
+   * original's own draw order: the item's frame is the garment BEHIND its arm
+   * (the torso), then the arm, then the sleeve in front of it. See
+   * ClotheArm's and ClotheSleeve's class docs, and swf_to_rig.py.
+   *
+   * Always attached: an item with no arm of its own — every slot but tops, and
+   * a top on face/back where the body rig draws the arms — simply renders
+   * nothing for both, the same "no artwork for this facing" convention every
+   * other part uses, so there is nothing to detect up front.
    */
-  private attachSleeves(category: string, clothingId: string): void {
-    (['right', 'left'] as const).forEach(side => {
-      const armIndex = this.parts.findIndex(p => p instanceof AvatarArms && p.side === side);
-      if (armIndex === -1) {
-        console.warn(`[Avatar] no AvatarArms('${side}') found — sleeve for ${clothingId} skipped`);
-        return;
-      }
-      const sleeve = new ClotheSleeve(clothingId, category, side, this._direction);
-      this.parts.splice(armIndex + 1, 0, sleeve);
-    });
+  private attachArm(category: string, clothingId: string): void {
+    const itemIndex = this.parts.findIndex(p =>
+      p.constructor.name.toLowerCase().includes(category.toLowerCase()));
+    if (itemIndex === -1) return;
+    const legs = BaseTextureLoader.getInstance().HUMAN_LEGS_ANIMATIONS;
+    const arm = new ClotheArm(clothingId, category, this._direction, 0.22, legs);
+    const sleeve = new ClotheSleeve(clothingId, category, this._direction, legs);
+    this.parts.splice(itemIndex + 1, 0, arm, sleeve);
+    arm.setTint(this.skinColor);
   }
 
   /**
@@ -380,14 +343,19 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * in `this.parts`.
    */
   private attachTimedOverlay(category: string, clothingId: string): void {
-    const itemIndex = this.parts.findIndex(p =>
-      p.constructor.name.toLowerCase().includes(category.toLowerCase()));
-    if (itemIndex === -1) {
+    // After the LAST layer this item owns (garment, then its arm and sleeve),
+    // not just the garment — the effect draws over all of them.
+    const owns = (p: IAvatarPart) =>
+      p.constructor.name.toLowerCase().includes(category.toLowerCase())
+      || ((p instanceof ClotheArm || p instanceof ClotheSleeve) && p.category === category);
+    let last = -1;
+    this.parts.forEach((p, i) => { if (owns(p)) last = i; });
+    if (last === -1) {
       console.warn(`[Avatar] no ${category} part found — timed overlay for ${clothingId} skipped`);
       return;
     }
     const overlay = new TimedClothe(clothingId, category, this._direction);
-    this.parts.splice(itemIndex + 1, 0, overlay);
+    this.parts.splice(last + 1, 0, overlay);
   }
 
   private findInsertionIndex(targetOrder: number): number {

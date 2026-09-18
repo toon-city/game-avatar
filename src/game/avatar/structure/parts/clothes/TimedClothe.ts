@@ -5,7 +5,7 @@ import { AssetBaseUrl } from '../../../../../core/AssetBaseUrl';
 /**
  * A decorative effect layered over a clothing item (e.g. Michael1's
  * twinkling stars) that loops on its OWN fixed real-time interval,
- * independent of walking — unlike `ClotheSleeve`/`AnimatedClothe`, which
+ * independent of walking — unlike `AnimatedClothe`, which
  * only animate while the avatar walks and are frame-locked to that gait.
  * This plays continuously from the moment the item is equipped, whether the
  * avatar is standing still or moving, same as the original SWF's effect.
