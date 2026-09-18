@@ -14,6 +14,12 @@ import {AssetBaseUrl} from '../../../../../core/AssetBaseUrl';
  * with a single texture does nothing visible). A hat and a walking pair of
  * trousers go through the exact same code path.
  *
+ * The gait picks the CA state, it does not decide whether anything animates:
+ * a nested clip plays whatever the avatar is doing, which is why
+ * michael_tshirt's stars keep twinkling standing still (its stop state runs 21
+ * frames). Both gaits therefore have their own cycle in the sheet and this
+ * plays whichever one is current.
+ *
  * On the facings where the body rig draws no arm — profiles and upper
  * diagonals — the limb comes from the top, as a sibling `ClotheArm` layer
  * drawn UNDER this one so the sleeve covers it and it can be tinted with the
@@ -30,13 +36,13 @@ import {AssetBaseUrl} from '../../../../../core/AssetBaseUrl';
  * same period, phase-locked indefinitely. Still no frame-for-frame matching,
  * just matched cycle length.
  *
- * Frame contract: `{id}_{direction}_0.png` is the stop pose and the sheet's
- * `animations["{id}_wlk_{direction}"]` lists the walk cycle, on the same 80x120
+ * Frame contract: the sheet's `animations["{id}_stp_{direction}"]` and
+ * `animations["{id}_wlk_{direction}"]` list the two cycles, on the same 80x120
  * trim canvas as everything else — the exporter bakes placement into each
- * frame's trim metadata, there is no app-side offset here. The walk list names
- * the same frame several times where Flash held one drawing across several
- * frames, so its length is the real cycle length even though the sheet holds
- * far fewer images.
+ * frame's trim metadata, there is no app-side offset here. A list names the
+ * same frame several times where Flash held one drawing across several frames,
+ * so its length is the real cycle length even though the sheet holds far fewer
+ * images.
  */
 export class AnimatedClothe extends AnimatedSprite implements IClothe {
   private _direction: number;
@@ -99,13 +105,12 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
 
   walk(): void {
     this._walking = true;
-    if (this.textures.length > 1) this.play();
+    this.applyDirection();
   }
 
   stopWalk(): void {
     this._walking = false;
-    this.stop();
-    if (this.textures.length > 0) this.texture = this.textures[0] as Texture;
+    this.applyDirection();
   }
 
   /**
@@ -121,18 +126,27 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
     return this.baseAnimationSpeed * (ownFrameCount / refCount);
   }
 
-  /** The stop pose followed by this direction's walk cycle — see class doc. */
-  private framesForCurrentDirection(): Texture[] {
+  /**
+   * This direction's cycle for the current gait — see class doc.
+   *
+   * Accessories fall back to the stop cycle: hair, hats and face items are
+   * indexed by direction ALONE in the original (`clipType.cheveux.coif
+   * .gotoAndStop(CHEV)`, no walk/stop pair), so they have one cycle that runs
+   * whichever the avatar is doing — a ponytail sways standing still as well as
+   * walking. They are written under the stop name and there is no walk one.
+   */
+  private framesForCurrentState(): Texture[] {
     if (!Assets.cache.has(this.fileURI)) return [];
-    const sheet = Assets.cache.get(this.fileURI);
-    const walk: string[] = sheet?.data?.animations?.[`${this._identifier}_wlk_${this._direction}`] ?? [];
-    const stop = `${this._identifier}_${this._direction}_0.png`;
-    const names = Assets.cache.has(stop) ? [stop, ...walk] : walk;
-    return names.filter(n => Assets.cache.has(n)).map(n => Texture.from(n));
+    const animations = Assets.cache.get(this.fileURI)?.data?.animations ?? {};
+    const forGait = (gait: string): string[] =>
+      animations[`${this._identifier}_${gait}_${this._direction}`] ?? [];
+    const names = (this._walking ? forGait('wlk') : []);
+    return (names.length ? names : forGait('stp'))
+      .filter(n => Assets.cache.has(n)).map(n => Texture.from(n));
   }
 
   private applyDirection(): void {
-    const frames = this.framesForCurrentDirection();
+    const frames = this.framesForCurrentState();
 
     if (frames.length === 0) {
       // Nothing authored for this direction — render nothing rather than
@@ -148,6 +162,10 @@ export class AnimatedClothe extends AnimatedSprite implements IClothe {
     this.texture = frames[0] as Texture;
     this.animationSpeed = this.computeAnimationSpeed(frames.length);
 
-    if (this._walking && frames.length > 1) this.play();
+    // Plays in both gaits: a nested clip in Flash runs on its own timeline
+    // whatever the avatar is doing, so a garment with a decorative animation
+    // (michael_tshirt's twinkling stars) keeps twinkling standing still. A
+    // one-frame cycle — every other item's stop pose — has nothing to play.
+    if (frames.length > 1) this.play();
   }
 }

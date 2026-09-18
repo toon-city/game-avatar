@@ -26,10 +26,10 @@ interface ArmStep {
  * symbol's ORIGIN, unlike every other frame in a sheet, whose trim is a canvas
  * position: a rotating sprite has no fixed one, so the matrix supplies it.
  *
- * Frame 0 is the stop pose and the rest are the walk cycle, same indexing as
- * the garment's own textures, and both are phase-locked to the legs the same
- * way (see AnimatedClothe) — so the arm and its sleeve stay in step with no
- * cross-talk between the two parts.
+ * There is a track per gait, indexed like the garment's own cycle for that
+ * gait, and both are phase-locked to the legs the same way (see
+ * AnimatedClothe) — so the arm and its sleeve stay in step with no cross-talk
+ * between the two parts.
  */
 export class ClotheArm extends AnimatedSprite implements IAvatarPart {
   /** Marks this as tintable for Avatar.setSkinColor()'s `'isSkin' in part` check. */
@@ -89,20 +89,21 @@ export class ClotheArm extends AnimatedSprite implements IAvatarPart {
 
   walk(): void {
     this._walking = true;
-    if (this.textures.length > 1) this.play();
+    this.applyDirection();
   }
 
   stopWalk(): void {
     this._walking = false;
-    this.stop();
-    this.gotoAndStop(0);
+    this.applyDirection();
   }
 
-  /** The `meta.arm` track for the current direction, or null where the rig
-   *  draws the arm itself (face/back) and for garments that have none at all. */
-  private track(): {stop?: ArmStep; walk?: ArmStep[]} | null {
+  /** The `meta.arm` track for the current direction and gait, or null where the
+   *  rig draws the arm itself (face/back) and for garments that have none. */
+  private track(): ArmStep[] | null {
     const sheet = Assets.cache.get(this.fileURI);
-    return sheet?.data?.meta?.arm?.[String(this._direction)] ?? null;
+    const dir = sheet?.data?.meta?.arm?.[String(this._direction)];
+    // Same stop fallback as AnimatedClothe.framesForCurrentState().
+    return (this._walking ? dir?.walk : null) ?? dir?.stop ?? null;
   }
 
   private applyStep(frame: number): void {
@@ -119,12 +120,7 @@ export class ClotheArm extends AnimatedSprite implements IAvatarPart {
   }
 
   private applyDirection(): void {
-    const track = this.track();
-    // Frame 0 is the stop pose, so a direction with only a walk track still
-    // needs something to sit on when idle — its first walk frame stands in.
-    this.steps = track ? [track.stop ?? (track.walk?.[0] as ArmStep), ...(track.walk ?? [])]
-                           .filter(Boolean)
-                       : [];
+    this.steps = this.track() ?? [];
 
     if (this.steps.length === 0) {
       this.stop();
@@ -138,7 +134,8 @@ export class ClotheArm extends AnimatedSprite implements IAvatarPart {
     // `textures =` resets to frame 0 without firing onFrameChange, so place it.
     this.applyStep(0);
 
-    if (this._walking && this.steps.length > 1) this.play();
+    // Plays in both gaits, same reasoning as AnimatedClothe.applyDirection().
+    if (this.steps.length > 1) this.play();
   }
 
   /** Same cycle-length matching as AnimatedClothe.computeAnimationSpeed(). */

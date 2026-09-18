@@ -5,15 +5,6 @@ export type PartConfig = {
   order: number;
   required?: boolean;
   /**
-   * Clothing only: this category can also render a `TimedClothe` decorative
-   * overlay (e.g. Michael1's twinkling stars) from the SAME item's
-   * spritesheet, looping on its own real-time clock regardless of walking —
-   * see TimedClothe's class doc. Avatar.changeClothing() inserts/removes it
-   * right above the item itself (`order + 0.1`), not through this config's
-   * own `order` directly.
-   */
-  hasTimedOverlay?: boolean;
-  /**
    * Clothing only: items in this category carry their own arm on the facings
    * where the body rig draws none, so Avatar.changeClothing() stacks a
    * `ClotheArm` and a `ClotheSleeve` on top of the item (see their class docs).
@@ -41,7 +32,7 @@ export const PARTS_CONFIG: PartConfig[] = [
   { category: 'body', className: 'AvatarBody',              order: 3, required: true },
   { category: 'body', className: 'AvatarHead',              order: 4, required: true },
   { category: 'pant',   className: 'Pant',   order: 5 },
-  { category: 'tshirt', className: 'Tshirt', order: 6, hasArm: true, hasTimedOverlay: true },
+  { category: 'tshirt', className: 'Tshirt', order: 6, hasArm: true },
   { category: 'face',   className: 'Face',   order: 7 },
   { category: 'hair',   className: 'Hair',   order: 8 },
   { category: 'hat',    className: 'Hat',    order: 9 }

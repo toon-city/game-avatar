@@ -13,7 +13,6 @@ import {Hat} from './structure/parts/clothes/parts/Hat';
 import {Hair} from './structure/parts/clothes/parts/Hair';
 import {ClotheArm} from './structure/parts/clothes/ClotheArm';
 import {ClotheSleeve} from './structure/parts/clothes/ClotheSleeve';
-import {TimedClothe} from './structure/parts/clothes/TimedClothe';
 import {BaseTextureLoader} from '../textures/BaseTextureLoader';
 import { IHasPoints } from '../../modules/common/abstract/IHasPoints';
 import { Point } from '../../core/types/Point';
@@ -181,8 +180,8 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     });
   }
 
-  /** Last colour passed to setSkinColor — a garment's skin layer is attached
-   *  after the fact (on equip) and has to pick it up, see attachSkin(). */
+  /** Last colour passed to setSkinColor — a garment's arm layer is attached
+   *  after the fact (on equip) and has to pick it up, see attachArm(). */
   private skinColor = 0xffffff;
 
   /** Bitmask values that actually have artwork — see the diagram at the top of this file. */
@@ -287,8 +286,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     this.parts = this.parts.filter(part => {
       const owned = part.constructor.name.toLowerCase().includes(category.toLowerCase())
         || ((part instanceof ClotheArm || part instanceof ClotheSleeve)
-            && part.category === category)
-        || (part instanceof TimedClothe && part.category === category);
+            && part.category === category);
       if (owned) this.removeChild(part);
       return !owned;
     });
@@ -303,7 +301,6 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
         this.parts.splice(insertIndex, 0, newClothe);
         if (config?.hasArm) this.attachArm(category, id);
-        if (config?.hasTimedOverlay) this.attachTimedOverlay(category, id);
         this.renderParts();
         return true;
       }
@@ -333,29 +330,6 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     const sleeve = new ClotheSleeve(clothingId, category, this._direction, legs);
     this.parts.splice(itemIndex + 1, 0, arm, sleeve);
     arm.setTint(this.skinColor);
-  }
-
-  /**
-   * Insert a decorative `TimedClothe` overlay for a just-equipped item,
-   * right above the item's own layer (it must draw on top of it — see
-   * TimedClothe's class doc) but not tied to any body part's z-order the
-   * way a sleeve is, so it just sits right after the clothing item itself
-   * in `this.parts`.
-   */
-  private attachTimedOverlay(category: string, clothingId: string): void {
-    // After the LAST layer this item owns (garment, then its arm and sleeve),
-    // not just the garment — the effect draws over all of them.
-    const owns = (p: IAvatarPart) =>
-      p.constructor.name.toLowerCase().includes(category.toLowerCase())
-      || ((p instanceof ClotheArm || p instanceof ClotheSleeve) && p.category === category);
-    let last = -1;
-    this.parts.forEach((p, i) => { if (owns(p)) last = i; });
-    if (last === -1) {
-      console.warn(`[Avatar] no ${category} part found — timed overlay for ${clothingId} skipped`);
-      return;
-    }
-    const overlay = new TimedClothe(clothingId, category, this._direction);
-    this.parts.splice(last + 1, 0, overlay);
   }
 
   private findInsertionIndex(targetOrder: number): number {
