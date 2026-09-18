@@ -327,7 +327,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     if (itemIndex === -1) return;
     const legs = BaseTextureLoader.getInstance().HUMAN_LEGS_ANIMATIONS;
     const arm = new ClotheArm(clothingId, category, this._direction, 0.22, legs);
-    const sleeve = new ClotheSleeve(clothingId, category, this._direction, legs);
+    const sleeve = new ClotheSleeve(clothingId, category, this._direction, 0.22, legs);
     this.parts.splice(itemIndex + 1, 0, arm, sleeve);
     arm.setTint(this.skinColor);
   }

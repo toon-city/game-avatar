@@ -1,35 +1,40 @@
-import {AnimatedSprite, Assets, Matrix, Texture} from 'pixi.js';
+import {AnimatedSprite, Assets, Texture} from 'pixi.js';
 import {IAvatarPart} from '../IAvatarPart';
 import {AssetBaseUrl} from '../../../../../core/AssetBaseUrl';
 
-/** One entry of a sheet's `meta.arm[direction]` track: the frame to draw and
- *  the matrix (a, b, c, d, tx, ty) that places it, in atlas px like every other
- *  length in the sheet — see applyStep(). */
+/** One entry of a sheet's `meta.arm[direction].walk` track: rotation (degrees,
+ *  relative to the sprite's own baked resting pose) plus a small translate
+ *  correction, both already in world px — see swf_to_rig.py's export_milieu(). */
 interface ArmStep {
-  t: string;
-  m: [number, number, number, number, number, number];
+  deg: number;
+  dx: number;
+  dy: number;
 }
 
 /**
  * The limb a top draws itself, on the facings where the body rig draws none —
  * profiles and upper diagonals (see game-assets/tools/swf_to_rig.py).
  *
- * It is one sprite per direction driven by a matrix, not a frame sequence,
- * because that is how the SWF stores it: the garment's nested walk clip holds a
- * single arm drawing whose transform changes frame to frame, with the sleeve as
- * a sibling shape drawn after it. Reproducing that instead of baking it gives
- * three things at once — the arm is tinted with the player's skin colour while
- * the fabric touching it isn't, the sleeve covers the top of the arm, and a
- * top's frame count roughly halves.
+ * ONE static sprite per direction, not a frame per walk step: the exporter
+ * bakes the limb's resting rotation into the pixels (same technique as every
+ * other frame in the sheet -- its trim is a plain canvas position, no runtime
+ * placement needed), and walking only ever ROTATES that one image further,
+ * around a fixed pivot the sheet also supplies. That's what the SWF itself
+ * does -- a nested walk clip holds a single arm drawing whose transform
+ * changes frame to frame -- so reproducing it this way needs one sprite
+ * instead of one per frame, tints correctly (the fabric beside it doesn't),
+ * and the sleeve (ClotheSleeve, the top's own frame drawn AFTER this one)
+ * still covers it.
  *
- * The exporter writes an arm frame's trim as its content offset from the arm
- * symbol's ORIGIN, unlike every other frame in a sheet, whose trim is a canvas
- * position: a rotating sprite has no fixed one, so the matrix supplies it.
- *
- * There is a track per gait, indexed like the garment's own cycle for that
- * gait, and both are phase-locked to the legs the same way (see
- * AnimatedClothe) — so the arm and its sleeve stay in step with no cross-talk
- * between the two parts.
+ * `meta.arm[direction]`: `{ sprite, pivot: [x, y], walk: ArmStep[] }`. `pivot`
+ * is in the SAME space as every frame's own canvas position (relative to the
+ * sheet's shared, untrimmed `sourceSize` box) -- NOT relative to the sprite's
+ * own visible/trimmed pixels, which is a different space PixiJS's own
+ * `Sprite.pivot` never uses. Standing still
+ * uses `walk[0]`'s frame, i.e. the sprite's own baseline pose (deg 0): the
+ * original doesn't have a separately authored resting angle for this
+ * simplified rig, and re-using the walk cycle's first frame reads the same as
+ * the SWF's own dedicated stop pose (verified by rendering both).
  */
 export class ClotheArm extends AnimatedSprite implements IAvatarPart {
   /** Marks this as tintable for Avatar.setSkinColor()'s `'isSkin' in part` check. */
@@ -38,6 +43,7 @@ export class ClotheArm extends AnimatedSprite implements IAvatarPart {
   private _direction: number;
   private _walking = false;
   private steps: ArmStep[] = [];
+  private pivotPoint: [number, number] = [0, 0];
 
   constructor(
     private readonly clothingId: string,
@@ -52,6 +58,10 @@ export class ClotheArm extends AnimatedSprite implements IAvatarPart {
   ) {
     super([Texture.EMPTY]);
     this._direction = direction;
+    // The visible texture never changes (one static sprite) -- only the
+    // rotation/offset does, per step, driven by the SAME frame-advance timer
+    // AnimatedSprite already gives every other part (so this stays phase
+    // locked with no separate ticker to manage).
     this.onFrameChange = (frame: number) => this.applyStep(frame);
 
     if (Assets.cache.has(this.fileURI)) {
@@ -89,53 +99,63 @@ export class ClotheArm extends AnimatedSprite implements IAvatarPart {
 
   walk(): void {
     this._walking = true;
-    this.applyDirection();
+    if (this.steps.length > 1) this.play();
   }
 
   stopWalk(): void {
     this._walking = false;
-    this.applyDirection();
+    this.stop();
+    this.gotoAndStop(0);
   }
 
-  /** The `meta.arm` track for the current direction and gait, or null where the
-   *  rig draws the arm itself (face/back) and for garments that have none. */
-  private track(): ArmStep[] | null {
+  /** The `meta.arm` entry for the current direction, or null where the rig
+   *  draws the arm itself (face/back) and for garments that have none. */
+  private meta(): {sprite: string; pivot: [number, number]; walk: ArmStep[]} | null {
     const sheet = Assets.cache.get(this.fileURI);
-    const dir = sheet?.data?.meta?.arm?.[String(this._direction)];
-    // Same stop fallback as AnimatedClothe.framesForCurrentState().
-    return (this._walking ? dir?.walk : null) ?? dir?.stop ?? null;
+    return sheet?.data?.meta?.arm?.[String(this._direction)] ?? null;
   }
 
   private applyStep(frame: number): void {
     const step = this.steps[frame];
     if (!step) return;
-    // Every length in a sheet is in ATLAS pixels and PixiJS divides them by
-    // `meta.scale` when it builds the textures — including the trim this arm's
-    // placement starts from. The track is written in the same unit for
-    // consistency, so its translation has to go through the same division;
-    // a, b, c, d are ratios and don't.
-    const [a, b, c, d, tx, ty] = step.m;
-    const s = Number(Assets.cache.get(this.fileURI)?.data?.meta?.scale ?? 1) || 1;
-    this.setFromMatrix(new Matrix(a, b, c, d, tx / s, ty / s));
+    this.angle = step.deg;
+    // `position` is where PIXI projects `pivot` into the parent's space, so
+    // setting both to the SAME point keeps that point fixed on screen (the
+    // sprite's own baked/trimmed placement is unaffected) while making it the
+    // rotation centre -- `dx`/`dy` then nudge it by the frame's small drift.
+    this.position.set(this.pivotPoint[0] + step.dx, this.pivotPoint[1] + step.dy);
   }
 
   private applyDirection(): void {
-    this.steps = this.track() ?? [];
+    const meta = this.meta();
+    this.steps = meta?.walk ?? [];
 
-    if (this.steps.length === 0) {
+    if (!meta || this.steps.length === 0) {
       this.stop();
       this.textures = [Texture.EMPTY];
       this.texture = Texture.EMPTY;
+      this.pivot.set(0, 0);
+      this.position.set(0, 0);
       return;
     }
 
-    this.textures = this.steps.map(s => Texture.from(s.t));
+    // Every length in a sheet is in ATLAS px; PixiJS divides the texture's
+    // own trim by `meta.scale` when it builds it, and the pivot has to go
+    // through the same division to land on the same point in that texture.
+    const scale = Number(Assets.cache.get(this.fileURI)?.data?.meta?.scale ?? 1) || 1;
+    this.pivotPoint = [meta.pivot[0] / scale, meta.pivot[1] / scale];
+    this.pivot.set(this.pivotPoint[0], this.pivotPoint[1]);
+
+    const texture = Texture.from(meta.sprite);
+    // One texture repeated once per walk step: nothing to swap (one static
+    // sprite), but AnimatedSprite still needs `textures.length` steps long to
+    // advance `onFrameChange` at the right rate and phase-lock correctly.
+    this.textures = this.steps.map(() => texture);
+    this.texture = texture;
     this.animationSpeed = this.computeAnimationSpeed(this.steps.length);
-    // `textures =` resets to frame 0 without firing onFrameChange, so place it.
     this.applyStep(0);
 
-    // Plays in both gaits, same reasoning as AnimatedClothe.applyDirection().
-    if (this.steps.length > 1) this.play();
+    if (this._walking && this.steps.length > 1) this.play();
   }
 
   /** Same cycle-length matching as AnimatedClothe.computeAnimationSpeed(). */
