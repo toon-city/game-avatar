@@ -13,6 +13,7 @@ import {Hat} from './structure/parts/clothes/parts/Hat';
 import {Hair} from './structure/parts/clothes/parts/Hair';
 import {ClotheArm} from './structure/parts/clothes/ClotheArm';
 import {ClotheSleeve} from './structure/parts/clothes/ClotheSleeve';
+import {ClotheFx} from './structure/parts/clothes/ClotheFx';
 import {BaseTextureLoader} from '../textures/BaseTextureLoader';
 import { IHasPoints } from '../../modules/common/abstract/IHasPoints';
 import { Point } from '../../core/types/Point';
@@ -282,10 +283,10 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * Change a specific clothing item
    */
   public changeClothing(category: string, id?: string): boolean {
-    // Remove existing clothing of this category, and any arm/sleeve/timed-overlay it owns.
+    // Remove existing clothing of this category, and any arm/sleeve/fx-overlay it owns.
     this.parts = this.parts.filter(part => {
       const owned = part.constructor.name.toLowerCase().includes(category.toLowerCase())
-        || ((part instanceof ClotheArm || part instanceof ClotheSleeve)
+        || ((part instanceof ClotheArm || part instanceof ClotheSleeve || part instanceof ClotheFx)
             && part.category === category);
       if (owned) this.removeChild(part);
       return !owned;
@@ -301,6 +302,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
 
         this.parts.splice(insertIndex, 0, newClothe);
         if (config?.hasArm) this.attachArm(category, id);
+        if (config?.hasFx) this.attachFx(category, id);
         this.renderParts();
         return true;
       }
@@ -330,6 +332,31 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     const sleeve = new ClotheSleeve(clothingId, category, this._direction, 0.22, legs);
     this.parts.splice(itemIndex + 1, 0, arm, sleeve);
     arm.setTint(this.skinColor);
+  }
+
+  /** A garment can carry more than one decorative overlay clip (see
+   *  ClotheFx's class doc); this attaches a fixed number of slots regardless
+   *  of how many a given item actually uses, same "no artwork" convention as
+   *  everything else — a slot with nothing for it just renders empty. */
+  private static readonly MAX_FX_SLOTS = 4;
+
+  /**
+   * Stack a just-equipped item's own decorative overlay clips on top of
+   * EVERYTHING it owns (the item, its arm, its sleeve) — see ClotheFx's class
+   * doc. After the LAST layer this item owns, not just the item itself, so
+   * an overlay reads as sitting on top of the whole outfit, not tucked under
+   * the sleeve.
+   */
+  private attachFx(category: string, clothingId: string): void {
+    const owns = (p: IAvatarPart) =>
+      p.constructor.name.toLowerCase().includes(category.toLowerCase())
+      || ((p instanceof ClotheArm || p instanceof ClotheSleeve) && p.category === category);
+    let last = -1;
+    this.parts.forEach((p, i) => { if (owns(p)) last = i; });
+    if (last === -1) return;
+    const overlays = Array.from({length: Avatar.MAX_FX_SLOTS}, (_, slot) =>
+      new ClotheFx(clothingId, category, this._direction, slot));
+    this.parts.splice(last + 1, 0, ...overlays);
   }
 
   private findInsertionIndex(targetOrder: number): number {

@@ -13,6 +13,16 @@ export type PartConfig = {
    * a top with no arm for a facing simply renders nothing for both layers.
    */
   hasArm?: boolean;
+  /**
+   * Clothing only: items in this category can carry decorative overlay clips
+   * baked into the original (michael_tshirt's twinkling stars) — the
+   * exporter pulls them out of the torso and lists them per direction under
+   * `meta.fx` (see swf_to_rig.py's classify_root_use()/export_fx()), and
+   * Avatar.changeClothing() stacks one `ClotheFx` per available slot on top
+   * of the item. Not a per-item switch either: an item with no `meta.fx`
+   * entry for a facing simply renders nothing, same "no artwork" convention.
+   */
+  hasFx?: boolean;
 };
 
 /**
@@ -32,7 +42,7 @@ export const PARTS_CONFIG: PartConfig[] = [
   { category: 'body', className: 'AvatarBody',              order: 3, required: true },
   { category: 'body', className: 'AvatarHead',              order: 4, required: true },
   { category: 'pant',   className: 'Pant',   order: 5 },
-  { category: 'tshirt', className: 'Tshirt', order: 6, hasArm: true },
+  { category: 'tshirt', className: 'Tshirt', order: 6, hasArm: true, hasFx: true },
   { category: 'face',   className: 'Face',   order: 7 },
   { category: 'hair',   className: 'Hair',   order: 8 },
   { category: 'hat',    className: 'Hat',    order: 9 }
