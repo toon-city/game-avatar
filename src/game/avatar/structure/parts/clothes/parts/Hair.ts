@@ -1,6 +1,9 @@
 import {AnimatedClothe} from '../AnimatedClothe';
 
 export class Hair extends AnimatedClothe {
+  /** Marks this as tintable for Avatar.setHairColor()'s `'isHair' in part` check. */
+  public readonly isHair = true;
+
   constructor(identifier: string = 'hair7', direction?: number) {
     super(identifier, 'hair', direction ?? 1);
   }

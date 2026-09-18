@@ -167,6 +167,10 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
     return 'isSkin' in part;
   }
 
+  private partIsHair(part: any): part is Hair {
+    return 'isHair' in part;
+  }
+
   /**
    * Set the skin color.
    *
@@ -184,6 +188,26 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
   /** Last colour passed to setSkinColor — a garment's arm layer is attached
    *  after the fact (on equip) and has to pick it up, see attachArm(). */
   private skinColor = 0xffffff;
+
+  /**
+   * Set the hair colour (tints the currently-equipped hairstyle). 0xffffff
+   * (the default) is a no-op multiply — "keep the style's own drawn colour" —
+   * same neutral convention Avatar's constructor uses for skin before
+   * setSkinColor overrides it.
+   */
+  public setHairColor(color: number) {
+    this.hairColor = color;
+    this.parts.forEach((part) => {
+      if (this.partIsHair(part)) {
+        part.setTint(color);
+      }
+    });
+  }
+
+  /** Last colour passed to setHairColor — a hairstyle swap (changeClothing)
+   *  replaces the Hair part outright, so the new one has to pick this up;
+   *  see changeClothing()'s own hair branch. */
+  private hairColor = 0xffffff;
 
   /** Bitmask values that actually have artwork — see the diagram at the top of this file. */
   private static readonly VALID_DIRECTIONS = new Set([1, 2, 4, 5, 6, 8, 9, 10]);
@@ -301,6 +325,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
         const insertIndex = config ? this.findInsertionIndex(config.order) : this.parts.length;
 
         this.parts.splice(insertIndex, 0, newClothe);
+        if (this.partIsHair(newClothe)) newClothe.setTint(this.hairColor);
         if (config?.hasArm) this.attachArm(category, id);
         if (config?.hasFx) this.attachFx(category, id);
         this.renderParts();

@@ -8,6 +8,7 @@ export interface AvatarSpawnOptions {
   showSocle?: boolean;
   direction?: number;
   skinColor?: number;
+  hairColor?: number;
   clothing?: { [category: string]: string };
   /** Pseudo affiché au-dessus de l'avatar au survol. Par défaut : l'id. */
   username?: string;
@@ -63,6 +64,10 @@ export class AvatarManager {
     // Apply skin color if specified
     if (options.skinColor !== undefined) {
       avatar.setSkinColor(options.skinColor);
+    }
+
+    if (options.hairColor !== undefined) {
+      avatar.setHairColor(options.hairColor);
     }
 
     // Update Z-index based on position

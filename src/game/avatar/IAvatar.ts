@@ -35,6 +35,7 @@ export interface IAvatar {
    * @param color - The color value to set.
    */
   setSkinColor(color: number): void;
+  setHairColor(color: number): void;
 
   /**
    * Changes the direction of the character based on the arrow keys.
