@@ -13,6 +13,15 @@ export type PartConfig = {
    * own `order` directly.
    */
   hasTimedOverlay?: boolean;
+  /**
+   * Clothing only: items in this category carry their own arm on the facings
+   * where the body rig draws none, so Avatar.changeClothing() stacks a
+   * `ClotheArm` and a `ClotheSleeve` on top of the item (see their class docs).
+   * Only tops do — `vmilieu` is the one placeholder the rig leaves armless —
+   * and the exporter enforces the same rule, so this is not a per-item switch:
+   * a top with no arm for a facing simply renders nothing for both layers.
+   */
+  hasArm?: boolean;
 };
 
 /**
@@ -32,7 +41,7 @@ export const PARTS_CONFIG: PartConfig[] = [
   { category: 'body', className: 'AvatarBody',              order: 3, required: true },
   { category: 'body', className: 'AvatarHead',              order: 4, required: true },
   { category: 'pant',   className: 'Pant',   order: 5 },
-  { category: 'tshirt', className: 'Tshirt', order: 6, hasTimedOverlay: true },
+  { category: 'tshirt', className: 'Tshirt', order: 6, hasArm: true, hasTimedOverlay: true },
   { category: 'face',   className: 'Face',   order: 7 },
   { category: 'hair',   className: 'Hair',   order: 8 },
   { category: 'hat',    className: 'Hat',    order: 9 }

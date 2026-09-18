@@ -302,7 +302,7 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
         const insertIndex = config ? this.findInsertionIndex(config.order) : this.parts.length;
 
         this.parts.splice(insertIndex, 0, newClothe);
-        this.attachArm(category, id);
+        if (config?.hasArm) this.attachArm(category, id);
         if (config?.hasTimedOverlay) this.attachTimedOverlay(category, id);
         this.renderParts();
         return true;
@@ -319,10 +319,10 @@ export class Avatar extends Container implements IAvatar, IHasPoints {
    * (the torso), then the arm, then the sleeve in front of it. See
    * ClotheArm's and ClotheSleeve's class docs, and swf_to_rig.py.
    *
-   * Always attached: an item with no arm of its own — every slot but tops, and
-   * a top on face/back where the body rig draws the arms — simply renders
-   * nothing for both, the same "no artwork for this facing" convention every
-   * other part uses, so there is nothing to detect up front.
+   * Attached for every item in a `hasArm` category, without looking at what
+   * that item actually has: on face/back, where the body rig draws the arms
+   * itself, both layers simply render nothing — the same "no artwork for this
+   * facing" convention every other part uses.
    */
   private attachArm(category: string, clothingId: string): void {
     const itemIndex = this.parts.findIndex(p =>

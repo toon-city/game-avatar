@@ -11,7 +11,7 @@ import { Container, Text, TextStyle } from 'pixi.js';
 // user explicitly wants this to be a continuous, uninterrupted snore effect
 // that only stops on move/talk, so this reimplements it as an actual
 // repeating spawner rather than a fixed 40-frame one-shot.
-const SPAWN_INTERVAL_MS = (8 / 24) * 1000;
+const SPAWN_INTERVAL_MS = (8 / 24) * 1500;
 const LIFETIME_MS = (28 / 24) * 1000;
 const DRIFT_X = 14; // px over the Z's lifetime (scaled down from the raw SWF delta — see module doc)
 const DRIFT_Y = -22;
